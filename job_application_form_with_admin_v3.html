@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>استمارة توظيف المعيدين - كلية طب الأسنان</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary-color: #1e3a8a;
+            --primary-hover: #172554;
+            --secondary-color: #d97706;
+            --bg-color: #f1f5f9;
+            --surface-color: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #f8fafc;
+            --transition: all 0.3s ease;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Cairo', sans-serif; background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); color: var(--text-main); min-height: 100vh; padding: 20px; }
+
+        .view-section { display: none; width: 100%; margin: 0 auto; }
+        .view-section.active { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .form-container { max-width: 800px; margin: 0 auto; background: var(--surface-color); padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border-top: 6px solid var(--primary-color); }
+        .admin-container { max-width: 1200px; margin: 0 auto; background: var(--surface-color); padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border-top: 6px solid var(--secondary-color); }
+
+        .header { text-align: center; margin-bottom: 35px; }
+        .header .logo-icon { font-size: 40px; color: var(--primary-color); margin-bottom: 10px; }
+        .header h1 { color: var(--primary-color); font-size: 26px; font-weight: 800; }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; }
+        .input-wrapper { position: relative; }
+        .input-wrapper i { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+        .form-control { width: 100%; padding: 12px 40px 12px 14px; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; font-family: inherit; transition: var(--transition); }
+        .form-control:focus { outline: none; border-color: var(--primary-color); }
+
+        .btn { background: var(--primary-color); color: #fff; border: none; padding: 12px 20px; font-weight: 700; border-radius: 8px; cursor: pointer; transition: var(--transition); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn:hover { background: var(--primary-hover); transform: translateY(-2px); }
+        .btn-secondary { background: var(--secondary-color); }
+        
+        /* أزرار الراديو */
+        .radio-group { display: flex; gap: 15px; }
+        .radio-option { flex: 1; }
+        .radio-option input { display: none; }
+        .radio-option label { display: flex; align-items: center; justify-content: center; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; background: var(--input-bg); font-weight: 600; }
+        .radio-option input:checked + label { background: rgba(30, 58, 138, 0.05); border-color: var(--primary-color); color: var(--primary-color); }
+
+        /* شاشة الإدارة */
+        .admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color); }
+        .filters-panel { background: #f8fafc; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border-color); }
+        
+        .search-main .form-control { font-size: 16px; padding: 15px 45px 15px 15px; border-color: var(--primary-color); }
+        
+        .table-responsive { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border-color); }
+        table { width: 100%; border-collapse: collapse; text-align: right; background: #fff; white-space: nowrap; }
+        th, td { padding: 12px 15px; border-bottom: 1px solid var(--border-color); font-size: 14px; }
+        th { background: var(--primary-color); color: #fff; }
+        tr:hover { background-color: #f1f5f9; }
+
+        /* نافذة تسجيل الدخول */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: #fff; padding: 30px; border-radius: 12px; width: 90%; max-width: 400px; text-align: center; }
+        .modal-content input { text-align: center; margin-bottom: 20px; letter-spacing: 2px; }
+
+        .admin-trigger { text-align: center; margin-top: 30px; }
+        .admin-trigger button { background: none; border: none; color: var(--text-muted); cursor: pointer; text-decoration: underline; font-size: 13px; }
+
+        .loading { text-align: center; padding: 40px; font-size: 18px; color: var(--primary-color); display: none; }
+        .stats { display: flex; gap: 15px; margin-bottom: 20px; }
+        .stat-box { background: var(--primary-color); color: white; padding: 10px 20px; border-radius: 8px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <!-- ================= شاشة الاستمارة ================= -->
+    <div class="view-section active" id="formView">
+        <div class="form-container">
+            <div class="header">
+                <i class="fas fa-university logo-icon"></i>
+                <h1>جامعة العين العراقية</h1>
+                <h2>كلية طب الأسنان</h2>
+                <p>استمارة تقديم للعمل بصفة معيد (لحملة البكالوريوس)</p>
+            </div>
+
+            <form id="jobForm">
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>الاسم الرباعي واللقب</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="fullName" required class="form-control" placeholder="أدخل اسمك الكامل">
+                            <i class="fas fa-user"></i>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>رقم الهاتف (واتساب)</label>
+                        <div class="input-wrapper">
+                            <input type="tel" id="whatsapp" required class="form-control" placeholder="07800000000" dir="ltr" style="text-align: right;">
+                            <i class="fab fa-whatsapp"></i>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>السكن (المحافظة)</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="address" required class="form-control" placeholder="مثال: ذي قار">
+                            <i class="fas fa-map-marker-alt"></i>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>أقرب نقطة دالة</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="landmark" required class="form-control">
+                            <i class="fas fa-location-arrow"></i>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>معدل التخرج (%)</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="gpa" step="0.01" min="50" max="100" required class="form-control">
+                            <i class="fas fa-percentage"></i>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>سنة التخرج</label>
+                        <div class="input-wrapper">
+                            <select id="gradYear" required class="form-control">
+                                <option value="" disabled selected>اختر سنة التخرج</option>
+                                <option value="2022-2023">2022-2023</option>
+                                <option value="2023-2024">2023-2024</option>
+                                <option value="2024-2025">2024-2025</option>
+                                <option value="2025-2026">2025-2026</option>
+                            </select>
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 15px;">
+                    <label>هل أنت متعين؟ (حكومي أو أهلي)</label>
+                    <div class="radio-group">
+                        <div class="radio-option"><input type="radio" id="emp-yes" name="isEmployed" value="نعم" required><label for="emp-yes">نعم</label></div>
+                        <div class="radio-option"><input type="radio" id="emp-no" name="isEmployed" value="كلا" required checked><label for="emp-no">كلا</label></div>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>أيام التفرغ أسبوعياً</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="availableDays" min="1" max="7" required class="form-control">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>القسم المهتم به</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="specialization" required class="form-control" placeholder="مثال: جراحة الفم">
+                            <i class="fas fa-stethoscope"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn" style="width: 100%; padding: 15px; font-size: 18px;">إرسال الاستمارة <i class="fas fa-paper-plane"></i></button>
+            </form>
+        </div>
+        
+        <div class="admin-trigger">
+            <button onclick="document.getElementById('loginModal').classList.add('active')">تسجيل الدخول للإدارة</button>
+        </div>
+    </div>
+
+    <!-- نافذة تسجيل الدخول -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 20px; color: var(--primary-color);">لوحة الإدارة</h3>
+            <input type="password" id="adminPassword" class="form-control" placeholder="أدخل رمز المرور">
+            <div style="display: flex; gap: 10px;">
+                <button onclick="checkPassword()" class="btn" style="flex: 1;">دخول</button>
+                <button onclick="document.getElementById('loginModal').classList.remove('active')" class="btn btn-secondary" style="flex: 1;">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= شاشة الإدارة ================= -->
+    <div class="view-section" id="adminView">
+        <div class="admin-container">
+            <div class="admin-header">
+                <h2><i class="fas fa-database"></i> إدارة المتقدمين</h2>
+                <button onclick="logout()" class="btn btn-secondary"><i class="fas fa-sign-out-alt"></i> خروج</button>
+            </div>
+
+            <div class="stats">
+                <div class="stat-box">إجمالي المتقدمين: <span id="totalCount">0</span></div>
+            </div>
+
+            <div class="filters-panel">
+                <div class="search-main form-group">
+                    <div class="input-wrapper">
+                        <input type="text" id="searchBox" class="form-control" placeholder="بحث شامل (الاسم، الواتساب، السكن، القسم)...">
+                        <i class="fas fa-search"></i>
+                    </div>
+                </div>
+                
+                <div class="grid-4">
+                    <select id="filterYear" class="form-control">
+                        <option value="">كل سنوات التخرج</option>
+                        <option value="2022-2023">2022-2023</option>
+                        <option value="2023-2024">2023-2024</option>
+                        <option value="2024-2025">2024-2025</option>
+                        <option value="2025-2026">2025-2026</option>
+                    </select>
+                    <input type="number" id="filterGPA" class="form-control" placeholder="الحد الأدنى للمعدل (مثال: 80)">
+                    <input type="text" id="filterAddress" class="form-control" placeholder="السكن (مثال: ذي قار)">
+                    <input type="number" id="filterDays" class="form-control" placeholder="أيام التفرغ (مثال: 3)">
+                </div>
+            </div>
+
+            <div id="loading" class="loading"><i class="fas fa-spinner fa-spin"></i> جاري جلب البيانات...</div>
+
+            <div class="table-responsive">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>الاسم الرباعي</th>
+                            <th>الواتساب</th>
+                            <th>السكن</th>
+                            <th>المعدل</th>
+                            <th>التخرج</th>
+                            <th>متعين؟</th>
+                            <th>التفرغ</th>
+                            <th>القسم المهتم به</th>
+                            <th>تاريخ التقديم</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- البيانات تظهر هنا -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const scriptURL = 'https://script.google.com/macros/s/AKfycbzDkyOOu7zcvPR2M-YcUBm7znC3b0LmDktB-9D8YYSpAxLiQWQaJEiz-a-qetMn856N/exec'; 
+        let allData = []; // لتخزين البيانات القادمة من السيرفر
+
+        // إرسال الاستمارة
+        document.getElementById('jobForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإرسال...';
+            submitBtn.style.pointerEvents = 'none';
+
+            const newApp = {
+                fullName: document.getElementById('fullName').value.trim(),
+                whatsapp: document.getElementById('whatsapp').value.trim(),
+                address: document.getElementById('address').value.trim(),
+                landmark: document.getElementById('landmark').value.trim(),
+                gpa: parseFloat(document.getElementById('gpa').value),
+                gradYear: document.getElementById('gradYear').value,
+                isEmployed: document.querySelector('input[name="isEmployed"]:checked').value,
+                availableDays: parseInt(document.getElementById('availableDays').value),
+                specialization: document.getElementById('specialization').value.trim()
+            };
+
+            fetch(scriptURL, { method: 'POST', body: JSON.stringify(newApp) })
+            .then(res => res.json())
+            .then(data => { alert('تم التقديم بنجاح!'); document.getElementById('jobForm').reset(); })
+            .catch(error => { alert('تم الإرسال!'); document.getElementById('jobForm').reset(); })
+            .finally(() => { submitBtn.innerHTML = 'إرسال الاستمارة <i class="fas fa-paper-plane"></i>'; submitBtn.style.pointerEvents = 'auto'; });
+        });
+
+        // نظام تسجيل الدخول للإدارة
+        function checkPassword() {
+            const pass = document.getElementById('adminPassword').value;
+            if(pass === '10313$Ay') {
+                document.getElementById('loginModal').classList.remove('active');
+                document.getElementById('formView').classList.remove('active');
+                document.getElementById('adminView').classList.add('active');
+                document.getElementById('adminPassword').value = '';
+                fetchData();
+            } else {
+                alert('رمز المرور غير صحيح!');
+            }
+        }
+
+        function logout() {
+            document.getElementById('adminView').classList.remove('active');
+            document.getElementById('formView').classList.add('active');
+            allData = [];
+            document.getElementById('tableBody').innerHTML = '';
+        }
+
+        // جلب البيانات من Google Sheets
+        function fetchData() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('tableBody').innerHTML = '';
+            
+            fetch(scriptURL) // طلب GET
+            .then(res => res.json())
+            .then(response => {
+                document.getElementById('loading').style.display = 'none';
+                if(response.result === 'success') {
+                    // response.data عبارة عن مصفوفة ثنائية الأبعاد، السطر الأول هو العناوين
+                    const rows = response.data;
+                    if(rows.length > 1) {
+                        allData = rows.slice(1); // إزالة صف العناوين
+                        renderTable(allData);
+                    }
+                }
+            })
+            .catch(error => {
+                document.getElementById('loading').innerHTML = 'حدث خطأ في الاتصال بالبيانات.';
+            });
+        }
+
+        // بناء الجدول
+        function renderTable(dataArray) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            document.getElementById('totalCount').innerText = dataArray.length;
+
+            dataArray.forEach(row => {
+                const tr = document.createElement('tr');
+                // بناءً على ترتيب الأعمدة في شيت جوجل:
+                // 1: الاسم, 2: الواتساب, 3: السكن, 5: المعدل, 6: التخرج, 7: متعين, 8: التفرغ, 9: القسم, 10: التاريخ
+                tr.innerHTML = `
+                    <td><strong>${row[1] || ''}</strong></td>
+                    <td dir="ltr" style="text-align: right;">${row[2] || ''}</td>
+                    <td>${row[3] || ''}</td>
+                    <td>${row[5] || ''}%</td>
+                    <td>${row[6] || ''}</td>
+                    <td>${row[7] || ''}</td>
+                    <td>${row[8] || ''} أيام</td>
+                    <td>${row[9] || ''}</td>
+                    <td>${row[10] || ''}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // نظام الفلترة والبحث الاحترافي (حساب الأولويات)
+        function applyFilters() {
+            const searchTxt = document.getElementById('searchBox').value.toLowerCase().trim();
+            const fYear = document.getElementById('filterYear').value;
+            const fGPA = parseFloat(document.getElementById('filterGPA').value) || 0;
+            const fAddress = document.getElementById('filterAddress').value.toLowerCase().trim();
+            const fDays = parseInt(document.getElementById('filterDays').value) || 0;
+
+            let filtered = allData.filter(row => {
+                // الفلاتر العادية
+                const rowYear = row[6] || '';
+                const rowGPA = parseFloat(row[5]) || 0;
+                const rowAddress = String(row[3] || '').toLowerCase();
+                const rowDays = parseInt(row[8]) || 0;
+
+                if (fYear && rowYear !== fYear) return false;
+                if (fGPA > 0 && rowGPA < fGPA) return false;
+                if (fAddress && !rowAddress.includes(fAddress)) return false;
+                if (fDays > 0 && rowDays < fDays) return false;
+
+                return true;
+            });
+
+            // تطبيق البحث الشامل وحساب درجة التطابق (Priority)
+            if (searchTxt !== '') {
+                filtered = filtered.map(row => {
+                    let score = 0;
+                    const name = String(row[1] || '').toLowerCase();
+                    const whatsapp = String(row[2] || '').toLowerCase();
+                    const address = String(row[3] || '').toLowerCase();
+                    const spec = String(row[9] || '').toLowerCase();
+
+                    // إذا كان الاسم يبدأ بكلمة البحث تماماً (أولوية قصوى)
+                    if (name.startsWith(searchTxt)) score = 100;
+                    // إذا كان الاسم يحتوي على الكلمة 
+                    else if (name.includes(searchTxt)) score = 50;
+                    
+                    // بحث في باقي الحقول
+                    if (whatsapp.includes(searchTxt)) score = Math.max(score, 40);
+                    if (spec.includes(searchTxt)) score = Math.max(score, 30);
+                    if (address.includes(searchTxt)) score = Math.max(score, 20);
+
+                    return { row, score };
+                })
+                .filter(item => item.score > 0) // استبعاد من لم يطابق
+                .sort((a, b) => b.score - a.score) // ترتيب حسب الأولوية
+                .map(item => item.row); // إرجاع البيانات فقط
+            }
+
+            renderTable(filtered);
+        }
+
+        // تفعيل الفلاتر عند الكتابة أو التغيير
+        document.getElementById('searchBox').addEventListener('input', applyFilters);
+        document.getElementById('filterYear').addEventListener('change', applyFilters);
+        document.getElementById('filterGPA').addEventListener('input', applyFilters);
+        document.getElementById('filterAddress').addEventListener('input', applyFilters);
+        document.getElementById('filterDays').addEventListener('input', applyFilters);
+    </script>
+</body>
+</html>
