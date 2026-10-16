@@ -734,7 +734,7 @@
         </main>
     </div>
 
-    <!-- نفس كود الجافاسكربت السابق دون أي تغيير في المنطق -->
+    <!-- كود الجافاسكربت المعدل -->
     <script>
         const supabaseUrl = 'https://ztulochyubbyudgcrodp.supabase.co'; 
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0dWxvY2h5dWJieXVkZ2Nyb2RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5OTUwNjEsImV4cCI6MjEwNzU3MTA2MX0.p78OLnHcUfBmB-PINuw0-xx4dRp-exf99CqRHxhn8QI'; 
@@ -743,8 +743,15 @@
         let state = { salesRecords: [], expenses: [], purchasesHistory: [], debts: {}, categories: [], employees: {} };
         let selectedEmployeeForStatement = ''; let selectedSupplierForStatement = ''; let currentUser = null;
         
-        const formatCurrency = (num) => new Intl.NumberFormat('ar-IQ').format(num) + ' د.ع';
-        const getTodayStr = () => new Date().toISOString().split('T')[0];
+        // تعديل التنسيق ليكون باللغة الإنجليزية للأرقام
+        const formatCurrency = (num) => new Intl.NumberFormat('en-US').format(num) + ' د.ع';
+        
+        // تعديل جلب التاريخ ليعتمد على التوقيت المحلي بدلاً من توقيت جرينتش
+        const getTodayStr = () => {
+            const d = new Date();
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            return d.toISOString().split('T')[0];
+        };
 
         const todayStr = getTodayStr();
         document.getElementById('global-date').value = todayStr;
@@ -810,6 +817,7 @@
             }
         });
 
+        // إضافة زر تعديل كلمة المرور بجانب كل مستخدم
         async function loadUsers() {
             if (currentUser.role !== 'admin') return;
             const { data } = await supabaseClient.from('users').select('*');
@@ -819,11 +827,38 @@
                 data.forEach(u => {
                     tbody.innerHTML += `<tr>
                         <td>${u.username}</td><td>${u.role === 'admin' ? '<span class="badge-plus" style="background:#e0e7ff; color:#3730a3;">مدير</span>' : 'مستخدم'}</td>
-                        <td>${u.username !== 'admin' ? `<button class="btn-small btn-danger-outline" onclick="deleteUser(${u.id})"><i class="fas fa-trash"></i></button>` : ''}</td>
+                        <td>
+                            <button class="btn-small" style="background: var(--warning); color: #000; margin-left: 5px;" onclick="editUserPassword(${u.id}, '${u.username}')"><i class="fas fa-edit"></i> تعديل</button>
+                            ${u.username !== 'admin' ? `<button class="btn-small btn-danger-outline" onclick="deleteUser(${u.id})"><i class="fas fa-trash"></i></button>` : ''}
+                        </td>
                     </tr>`;
                 });
             }
         }
+
+        // دالة تغيير كلمة المرور لأي مستخدم
+        window.editUserPassword = async function(id, username) {
+            const newPassword = prompt(`أدخل كلمة المرور الجديدة للمستخدم: ${username}`);
+            if (newPassword && newPassword.trim() !== '') {
+                document.getElementById('loader').style.display = 'flex';
+                try {
+                    const { error } = await supabaseClient.from('users').update({ password: newPassword.trim() }).eq('id', id);
+                    if (error) {
+                        alert('حدث خطأ أثناء التعديل.');
+                    } else {
+                        alert('تم تعديل كلمة المرور بنجاح.');
+                        // تحديث بيانات الجلسة إذا كان التعديل لنفس الحساب المسجل به حالياً
+                        if (currentUser && currentUser.id === id) {
+                            currentUser.password = newPassword.trim();
+                            localStorage.setItem('restaurant_user', JSON.stringify(currentUser));
+                        }
+                    }
+                } catch (err) {
+                    alert('حدث خطأ أثناء تعديل كلمة المرور.');
+                }
+                document.getElementById('loader').style.display = 'none';
+            }
+        };
 
         document.getElementById('add-user-form').addEventListener('submit', async (e) => {
             e.preventDefault();
