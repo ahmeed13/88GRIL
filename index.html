@@ -3,411 +3,1065 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>استمارة توظيف المعيدين - كلية طب الأسنان</title>
+    <title>نظام إدارة المطعم الاحترافي</title>
+    
+    <!-- الخطوط العربية (Cairo) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- مكتبة الأيقونات FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- استدعاء مكتبة Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
+        /* ================= متغيرات التصميم (Design System) ================= */
         :root {
-            --primary-color: #1e3a8a;
-            --primary-hover: #172554;
-            --secondary-color: #d97706;
-            --bg-color: #f1f5f9;
-            --surface-color: #ffffff;
-            --text-main: #1e293b;
-            --text-muted: #64748b;
-            --border-color: #e2e8f0;
-            --input-bg: #f8fafc;
-            --transition: all 0.3s ease;
+            --primary: #4f46e5;       /* لون أساسي (نيلي حديث) */
+            --primary-hover: #4338ca;
+            --secondary: #64748b;     /* لون رمادي للنصوص الثانوية */
+            --success: #10b981;       /* أخضر مريح */
+            --danger: #ef4444;        /* أحمر طففيف */
+            --warning: #f59e0b;       /* برتقالي/أصفر */
+            --dark: #0f172a;          /* كحلي داكن جداً للقوائم */
+            --background: #f1f5f9;    /* لون خلفية النظام */
+            --surface: #ffffff;       /* لون البطاقات */
+            --border: #e2e8f0;        /* حدود ناعمة */
+            --sidebar-width: 260px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Cairo', sans-serif; background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); color: var(--text-main); min-height: 100vh; padding: 20px; }
-
-        .view-section { display: none; width: 100%; margin: 0 auto; }
-        .view-section.active { display: block; animation: fadeIn 0.5s; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        .form-container { max-width: 800px; margin: 0 auto; background: var(--surface-color); padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border-top: 6px solid var(--primary-color); }
-        .admin-container { max-width: 1200px; margin: 0 auto; background: var(--surface-color); padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border-top: 6px solid var(--secondary-color); }
-
-        .header { text-align: center; margin-bottom: 35px; }
-        .header .logo-icon { font-size: 40px; color: var(--primary-color); margin-bottom: 10px; }
-        .header h1 { color: var(--primary-color); font-size: 26px; font-weight: 800; }
-
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
-
-        .form-group { margin-bottom: 20px; }
-        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; }
-        .input-wrapper { position: relative; }
-        .input-wrapper i { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
-        .form-control { width: 100%; padding: 12px 40px 12px 14px; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; font-family: inherit; transition: var(--transition); }
-        .form-control:focus { outline: none; border-color: var(--primary-color); }
-
-        .btn { background: var(--primary-color); color: #fff; border: none; padding: 12px 20px; font-weight: 700; border-radius: 8px; cursor: pointer; transition: var(--transition); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-        .btn:hover { background: var(--primary-hover); transform: translateY(-2px); }
-        .btn-secondary { background: var(--secondary-color); }
+        /* ================= الإعدادات العامة ================= */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Cairo', sans-serif; }
+        body { display: flex; background-color: var(--background); color: #334155; height: 100vh; overflow: hidden; }
         
-        /* أزرار الراديو */
-        .radio-group { display: flex; gap: 15px; }
-        .radio-option { flex: 1; }
-        .radio-option input { display: none; }
-        .radio-option label { display: flex; align-items: center; justify-content: center; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; background: var(--input-bg); font-weight: 600; }
-        .radio-option input:checked + label { background: rgba(30, 58, 138, 0.05); border-color: var(--primary-color); color: var(--primary-color); }
+        /* إخفاء النظام بالكامل قبل تسجيل الدخول */
+        #app-container { display: none; width: 100%; height: 100%; }
 
-        /* شاشة الإدارة */
-        .admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color); }
-        .filters-panel { background: #f8fafc; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border-color); }
+        /* ================= شاشة تسجيل الدخول ================= */
+        #login-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: linear-gradient(135deg, var(--dark), #1e293b); 
+            z-index: 9998; display: flex; justify-content: center; align-items: center;
+        }
+        .login-card {
+            background: var(--surface); padding: 40px; border-radius: var(--radius-lg); 
+            width: 100%; max-width: 400px; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+            text-align: center;
+        }
+        .login-card h2 { margin-bottom: 25px; color: var(--dark); font-weight: 800; font-size: 1.8rem; }
+        .login-logo { font-size: 3rem; color: var(--primary); margin-bottom: 10px; }
+
+        /* ================= القائمة الجانبية (Sidebar) ================= */
+        .sidebar { 
+            width: var(--sidebar-width); background-color: var(--surface); 
+            border-left: 1px solid var(--border); display: flex; flex-direction: column;
+            box-shadow: var(--shadow-sm); z-index: 10;
+        }
+        .logo { 
+            padding: 25px 20px; text-align: center; border-bottom: 1px solid var(--border); 
+            background-color: var(--surface); display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .logo h2 { color: var(--primary); font-weight: 800; font-size: 1.4rem; margin: 0; }
+        .logo i { font-size: 1.5rem; color: var(--primary); }
         
-        .search-main .form-control { font-size: 16px; padding: 15px 45px 15px 15px; border-color: var(--primary-color); }
+        .nav-links { list-style: none; padding: 15px 10px; flex: 1; overflow-y: auto; }
+        .nav-links li { margin-bottom: 5px; }
+        .nav-links li a { 
+            display: flex; align-items: center; gap: 12px; padding: 12px 15px; 
+            color: var(--secondary); text-decoration: none; font-weight: 600; 
+            border-radius: var(--radius-md); transition: all 0.3s ease;
+        }
+        .nav-links li a i { width: 20px; text-align: center; font-size: 1.1rem; }
+        .nav-links li a:hover { background-color: var(--background); color: var(--primary); transform: translateX(-5px); }
+        .nav-links li a.active { 
+            background-color: var(--primary); color: white; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3); 
+        }
+
+        /* ================= المحتوى الرئيسي ================= */
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; background-color: var(--background); }
         
-        .table-responsive { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border-color); }
-        table { width: 100%; border-collapse: collapse; text-align: right; background: #fff; white-space: nowrap; }
-        th, td { padding: 12px 15px; border-bottom: 1px solid var(--border-color); font-size: 14px; }
-        th { background: var(--primary-color); color: #fff; }
-        tr:hover { background-color: #f1f5f9; }
+        /* الشريط العلوي */
+        .topbar { 
+            background-color: var(--surface); padding: 15px 30px; border-bottom: 1px solid var(--border); 
+            display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 9;
+            box-shadow: var(--shadow-sm);
+        }
+        .user-info { display: flex; gap: 15px; align-items: center; }
+        .user-avatar { 
+            width: 40px; height: 40px; border-radius: 50%; background: var(--primary); 
+            color: white; display: flex; align-items: center; justify-content: center; font-weight: bold;
+        }
+        .date-filter input { 
+            border: 1px solid var(--border); padding: 8px 15px; border-radius: 20px; 
+            background: var(--background); font-weight: 600; outline: none;
+        }
 
-        /* نافذة تسجيل الدخول */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
-        .modal.active { display: flex; }
-        .modal-content { background: #fff; padding: 30px; border-radius: 12px; width: 90%; max-width: 400px; text-align: center; }
-        .modal-content input { text-align: center; margin-bottom: 20px; letter-spacing: 2px; }
+        /* حاوية الصفحات وتأثير الظهور */
+        .page { display: none; padding: 30px; max-width: 1400px; margin: 0 auto; width: 100%; }
+        .page.active { display: block; animation: slideUp 0.4s ease forwards; }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
 
-        .admin-trigger { text-align: center; margin-top: 30px; }
-        .admin-trigger button { background: none; border: none; color: var(--text-muted); cursor: pointer; text-decoration: underline; font-size: 13px; }
+        .page-title { 
+            margin-bottom: 25px; font-size: 1.6rem; font-weight: 800; color: var(--dark);
+            display: flex; align-items: center; gap: 10px;
+        }
 
-        .loading { text-align: center; padding: 40px; font-size: 18px; color: var(--primary-color); display: none; }
-        .stats { display: flex; gap: 15px; margin-bottom: 20px; }
-        .stat-box { background: var(--primary-color); color: white; padding: 10px 20px; border-radius: 8px; font-weight: bold; }
+        /* ================= البطاقات والإحصائيات ================= */
+        .dashboard-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 25px; }
+        .card { 
+            background: var(--surface); padding: 25px; border-radius: var(--radius-lg); 
+            box-shadow: var(--shadow-md); display: flex; flex-direction: column; position: relative; overflow: hidden;
+            border-top: 4px solid var(--primary); transition: transform 0.3s ease;
+        }
+        .card:hover { transform: translateY(-5px); }
+        .card.card-success { border-top-color: var(--success); }
+        .card.card-danger { border-top-color: var(--danger); }
+        .card.card-warning { border-top-color: var(--warning); }
+        
+        .card-icon { position: absolute; left: 20px; top: 25px; font-size: 2.5rem; opacity: 0.1; }
+        .card.card-success .card-icon { color: var(--success); opacity: 0.2; }
+        .card.card-danger .card-icon { color: var(--danger); opacity: 0.15; }
+        .card.card-warning .card-icon { color: var(--warning); opacity: 0.2; }
+        .card.card-primary .card-icon { color: var(--primary); opacity: 0.15; }
+
+        .card h3 { font-size: 1rem; color: var(--secondary); margin-bottom: 10px; font-weight: 600; }
+        .card .amount { font-size: 1.8rem; font-weight: 800; color: var(--dark); }
+        
+        .text-primary { color: var(--primary) !important; } 
+        .text-danger { color: var(--danger) !important; } 
+        .text-warning { color: var(--warning) !important; } 
+        .text-success { color: var(--success) !important; }
+
+        /* ================= الحاويات والنماذج (Forms) ================= */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+        
+        .form-container, .table-container { 
+            background: var(--surface); padding: 25px; border-radius: var(--radius-lg); 
+            box-shadow: var(--shadow-md); margin-bottom: 25px;
+        }
+        .form-container h3, .table-container h3 { 
+            margin-bottom: 20px; font-size: 1.2rem; color: var(--dark); border-bottom: 1px solid var(--border); padding-bottom: 10px;
+        }
+        
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.95rem; color: #475569; }
+        .form-group input, .form-group select { 
+            width: 100%; padding: 12px 15px; border: 1px solid var(--border); 
+            border-radius: var(--radius-md); font-size: 0.95rem; background-color: #f8fafc;
+            transition: all 0.3s;
+        }
+        .form-group input:focus, .form-group select:focus { 
+            outline: none; border-color: var(--primary); background-color: var(--surface);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .result-box { 
+            background: var(--background); padding: 20px; border-radius: var(--radius-md); 
+            margin: 25px 0; text-align: center; border: 1px dashed #cbd5e1;
+        }
+        .expenses-highlight-box { 
+            background: #fef2f2; border: 1px solid #f87171; padding: 15px; 
+            border-radius: var(--radius-md); margin-bottom: 15px;
+        }
+
+        /* ================= الأزرار (Buttons) ================= */
+        button { font-family: 'Cairo', sans-serif; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-primary { 
+            background: var(--primary); color: white; border: none; padding: 14px 20px; 
+            width: 100%; border-radius: var(--radius-md); font-size: 1.05rem; font-weight: 700; 
+            box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);
+        }
+        .btn-primary:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 6px 12px rgba(79, 70, 229, 0.3); }
+        
+        .btn-small { 
+            padding: 8px 15px; font-size: 0.9rem; background: var(--secondary); border: none; 
+            border-radius: 6px; color: white; font-weight: 600;
+        }
+        .btn-small:hover { opacity: 0.9; }
+        .btn-danger-outline { background: #fef2f2; color: var(--danger); border: 1px solid #fca5a5; }
+        .btn-danger-outline:hover { background: var(--danger); color: white; }
+        .btn-success { background: var(--success); }
+
+        .btn-link { background: none; border: none; color: var(--primary); font-weight: 700; cursor: pointer; font-size: 0.95rem; }
+        .btn-link:hover { text-decoration: underline; }
+
+        /* ================= الجداول (Tables) ================= */
+        table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; }
+        th, td { padding: 15px; text-align: right; border-bottom: 1px solid var(--border); font-size: 0.95rem; }
+        th { background-color: var(--background); font-weight: 700; color: var(--secondary); white-space: nowrap; }
+        th:first-child { border-top-right-radius: var(--radius-md); }
+        th:last-child { border-top-left-radius: var(--radius-md); }
+        tbody tr { transition: background 0.2s; }
+        tbody tr:hover { background-color: #f8fafc; }
+        tfoot tr td { background-color: var(--background); font-weight: 800; border-top: 2px solid var(--border); }
+
+        /* ================= الشارات والتسميات ================= */
+        .section-label { 
+            font-size: 0.9rem; font-weight: 700; color: var(--primary); margin: 20px 0 15px 0; 
+            display: block; border-bottom: 2px solid #e0e7ff; padding-bottom: 8px; width: fit-content;
+        }
+        .badge-plus { background: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 20px; font-weight: 700; font-size: 0.85rem; }
+        .badge-minus { background: #fee2e2; color: #991b1b; padding: 4px 10px; border-radius: 20px; font-weight: 700; font-size: 0.85rem; }
+        
+        .filter-bar { 
+            display: flex; gap: 15px; margin-bottom: 20px; align-items: flex-end; 
+            background: var(--background); padding: 15px; border-radius: var(--radius-md); border: 1px solid var(--border); 
+        }
+
+        /* ================= شاشة التحميل ================= */
+        #loader { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(255,255,255,0.95); z-index: 9999; display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; color: var(--primary); font-weight: bold;
+        }
+        .spinner {
+            width: 50px; height: 50px; border: 5px solid #e0e7ff; border-top: 5px solid var(--primary);
+            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* ================= استجابة الشاشات الصغيرة ================= */
+        @media (max-width: 992px) {
+            .grid-4, .grid-3 { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 768px) {
+            #app-container { flex-direction: column; } 
+            .sidebar { width: 100%; border-left: none; border-bottom: 1px solid var(--border); max-height: 200px; }
+            .nav-links { display: flex; overflow-x: auto; padding: 10px; } 
+            .nav-links li { margin: 0 5px 0 0; white-space: nowrap; }
+            .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } 
+            .filter-bar { flex-direction: column; align-items: stretch; }
+            .topbar { padding: 15px; }
+            .page { padding: 15px; }
+        }
+
+        /* ================= تنسيقات الطباعة ================= */
+        @media print {
+            .sidebar, .topbar, .no-print { display: none !important; }
+            .main-content { overflow: visible !important; width: 100%; background: white; }
+            body { background: white; color: black; }
+            .page { padding: 0 !important; display: block !important; animation: none; }
+            .page:not(.active) { display: none !important; }
+            .card, .form-container, .table-container { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #ddd !important; padding: 8px !important; }
+        }
     </style>
 </head>
 <body>
 
-    <!-- ================= شاشة الاستمارة ================= -->
-    <div class="view-section active" id="formView">
-        <div class="form-container">
-            <div class="header">
-                <i class="fas fa-university logo-icon"></i>
-                <h1>جامعة العين العراقية</h1>
-                <h2>كلية طب الأسنان</h2>
-                <p>استمارة تقديم للعمل بصفة معيد (لحملة شهادة بكالوريوس طب الاسنان)</p>
-            </div>
+    <!-- مؤشر التحميل -->
+    <div id="loader" style="display: none;">
+        <div class="spinner"></div>
+        <div style="font-size: 1.2rem;">جاري معالجة البيانات...</div>
+    </div>
 
-            <form id="jobForm">
-                <div class="grid-2">
-                    <div class="form-group">
-                        <label>الاسم الرباعي واللقب</label>
-                        <div class="input-wrapper">
-                            <input type="text" id="fullName" required class="form-control" placeholder="أدخل اسمك الكامل">
-                            <i class="fas fa-user"></i>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>رقم الهاتف (واتساب)</label>
-                        <div class="input-wrapper">
-                            <input type="tel" id="whatsapp" required class="form-control" placeholder="07800000000" dir="ltr" style="text-align: right;">
-                            <i class="fab fa-whatsapp"></i>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>السكن (المحافظة)</label>
-                        <div class="input-wrapper">
-                            <input type="text" id="address" required class="form-control" placeholder="مثال: ذي قار">
-                            <i class="fas fa-map-marker-alt"></i>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>أقرب نقطة دالة</label>
-                        <div class="input-wrapper">
-                            <input type="text" id="landmark" required class="form-control">
-                            <i class="fas fa-location-arrow"></i>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>معدل التخرج (%)</label>
-                        <div class="input-wrapper">
-                            <input type="number" id="gpa" step="0.01" min="50" max="100" required class="form-control">
-                            <i class="fas fa-percentage"></i>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>سنة التخرج</label>
-                        <div class="input-wrapper">
-                            <select id="gradYear" required class="form-control">
-                                <option value="" disabled selected>اختر سنة التخرج</option>
-                                <option value="2022-2023">2022-2023</option>
-                                <option value="2023-2024">2023-2024</option>
-                                <option value="2024-2025">2024-2025</option>
-                                <option value="2025-2026">2025-2026</option>
-                            </select>
-                            <i class="fas fa-calendar-alt"></i>
-                        </div>
+    <!-- شاشة تسجيل الدخول -->
+    <div id="login-screen">
+        <div class="login-card">
+            <div class="login-logo"><i class="fas fa-utensils"></i></div>
+            <h2>تسجيل الدخول</h2>
+            <form onsubmit="event.preventDefault(); login();">
+                <div class="form-group text-right" style="text-align: right;">
+                    <label>اسم المستخدم</label>
+                    <div style="position: relative;">
+                        <i class="fas fa-user" style="position: absolute; right: 15px; top: 15px; color: #94a3b8;"></i>
+                        <input type="text" id="login-username" placeholder="أدخل اسم المستخدم" style="padding-right: 40px;" required>
                     </div>
                 </div>
-
-                <div class="form-group" style="margin-top: 15px;">
-                    <label>هل أنت متعين؟ ()</label>
-                    <div class="radio-group">
-                        <div class="radio-option"><input type="radio" id="emp-yes" name="isEmployed" value="نعم" required><label for="emp-yes">نعم</label></div>
-                        <div class="radio-option"><input type="radio" id="emp-no" name="isEmployed" value="كلا" required checked><label for="emp-no">كلا</label></div>
+                <div class="form-group text-right" style="text-align: right; margin-bottom: 25px;">
+                    <label>كلمة المرور</label>
+                    <div style="position: relative;">
+                        <i class="fas fa-lock" style="position: absolute; right: 15px; top: 15px; color: #94a3b8;"></i>
+                        <input type="password" id="login-password" placeholder="أدخل كلمة المرور" style="padding-right: 40px;" required>
                     </div>
                 </div>
-
-                <div class="grid-2">
-                    <div class="form-group">
-                        <label>أيام التفرغ أسبوعياً التي ستلتزم بها</label>
-                        <div class="input-wrapper">
-                            <input type="number" id="availableDays" min="1" max="7" required class="form-control">
-                            <i class="fas fa-clock"></i>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>القسم المهتم به</label>
-                        <div class="input-wrapper">
-                            <input type="text" id="specialization" required class="form-control" placeholder="مثال: جراحة الفم">
-                            <i class="fas fa-stethoscope"></i>
-                        </div>
-                    </div>
-                </div>
-
-                <button type="submit" class="btn" style="width: 100%; padding: 15px; font-size: 18px;">إرسال الاستمارة <i class="fas fa-paper-plane"></i></button>
+                <button type="submit" class="btn-primary">تسجيل الدخول <i class="fas fa-sign-in-alt"></i></button>
             </form>
+            <p id="login-error" style="color: var(--danger); margin-top: 15px; display: none; font-weight: 700; background: #fef2f2; padding: 10px; border-radius: 8px;">
+                <i class="fas fa-exclamation-circle"></i> بيانات الدخول غير صحيحة!
+            </p>
         </div>
+    </div>
+
+    <!-- حاوية النظام -->
+    <div id="app-container">
         
-        <div class="admin-trigger">
-            <button onclick="document.getElementById('loginModal').classList.add('active')">تسجيل الدخول للإدارة</button>
-        </div>
-    </div>
-
-    <!-- نافذة تسجيل الدخول -->
-    <div class="modal" id="loginModal">
-        <div class="modal-content">
-            <h3 style="margin-bottom: 20px; color: var(--primary-color);">لوحة الإدارة</h3>
-            <input type="password" id="adminPassword" class="form-control" placeholder="أدخل رمز المرور">
-            <div style="display: flex; gap: 10px;">
-                <button onclick="checkPassword()" class="btn" style="flex: 1;">دخول</button>
-                <button onclick="document.getElementById('loginModal').classList.remove('active')" class="btn btn-secondary" style="flex: 1;">إلغاء</button>
+        <!-- القائمة الجانبية -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fas fa-store"></i>
+                <h2>إدارة المطعم</h2>
             </div>
-        </div>
-    </div>
+            <nav style="flex: 1; display: flex; flex-direction: column;">
+                <ul class="nav-links">
+                    <li><a href="#" data-target="dashboard" class="active"><i class="fas fa-chart-pie"></i> لوحة التحكم</a></li>
+                    <li><a href="#" data-target="daily-sales"><i class="fas fa-cash-register"></i> إغلاق المبيعات</a></li>
+                    <li><a href="#" data-target="expenses"><i class="fas fa-file-invoice-dollar"></i> الصرفيات اليومية</a></li>
+                    <li><a href="#" data-target="employees"><i class="fas fa-users"></i> السلف والرواتب</a></li>
+                    <li><a href="#" data-target="purchases"><i class="fas fa-truck-loading"></i> المشتريات والديون</a></li>
+                </ul>
+                <ul class="nav-links" style="border-top: 1px solid var(--border); flex: unset; margin-top: auto;">
+                    <li id="reports-link" style="display: none;"><a href="#" data-target="reports" style="color: var(--primary);"><i class="fas fa-chart-line"></i> التقارير الشاملة</a></li>
+                    <li id="settings-link" style="display: none;"><a href="#" data-target="settings"><i class="fas fa-cog"></i> الإعدادات والمستخدمين</a></li>
+                </ul>
+            </nav>
+        </aside>
 
-    <!-- ================= شاشة الإدارة ================= -->
-    <div class="view-section" id="adminView">
-        <div class="admin-container">
-            <div class="admin-header">
-                <h2><i class="fas fa-database"></i> إدارة المتقدمين</h2>
-                <button onclick="logout()" class="btn btn-secondary"><i class="fas fa-sign-out-alt"></i> خروج</button>
-            </div>
-
-            <div class="stats">
-                <div class="stat-box">إجمالي المتقدمين: <span id="totalCount">0</span></div>
-            </div>
-
-            <div class="filters-panel">
-                <div class="search-main form-group">
-                    <div class="input-wrapper">
-                        <input type="text" id="searchBox" class="form-control" placeholder="بحث شامل (الاسم، الواتساب، السكن، القسم)...">
-                        <i class="fas fa-search"></i>
+        <!-- المحتوى الرئيسي -->
+        <main class="main-content">
+            
+            <!-- الشريط العلوي -->
+            <header class="topbar">
+                <div class="user-info">
+                    <div class="user-avatar"><i class="fas fa-user"></i></div>
+                    <div>
+                        <div id="logged-user-name" style="font-weight: 700; color: var(--dark);">مرحباً</div>
+                        <div style="font-size: 0.8rem; color: var(--secondary);">متصل الآن</div>
                     </div>
+                    <button onclick="logout()" class="btn-small btn-danger-outline" style="margin-right: 15px;">
+                        <i class="fas fa-sign-out-alt"></i> خروج
+                    </button>
+                </div>
+                <div class="date-filter">
+                    <span style="font-weight: 600; color: var(--secondary); margin-left: 10px;"><i class="far fa-calendar-alt"></i> تاريخ العمل:</span>
+                    <input type="date" id="global-date">
+                </div>
+            </header>
+
+            <!-- ================= لوحة التحكم ================= -->
+            <section id="dashboard" class="page active">
+                <h2 class="page-title"><i class="fas fa-chart-pie text-primary"></i> ملخص اليوم الحالي</h2>
+                <div class="dashboard-cards">
+                    <div class="card card-primary">
+                        <i class="fas fa-wallet card-icon"></i>
+                        <h3>المبيعات الكلية</h3>
+                        <p class="amount text-primary" id="dash-total-sales">0 د.ع</p>
+                    </div>
+                    <div class="card card-success">
+                        <i class="fas fa-box-open card-icon"></i>
+                        <h3>نقد الكاشير المتوقع</h3>
+                        <p class="amount text-success" id="dash-expected-cash">0 د.ع</p>
+                    </div>
+                    <div class="card card-danger">
+                        <i class="fas fa-hand-holding-usd card-icon"></i>
+                        <h3>إجمالي صرفيات اليوم</h3>
+                        <p class="amount text-danger" id="dash-expenses">0 د.ع</p>
+                    </div>
+                    <div class="card card-warning">
+                        <i class="fas fa-motorcycle card-icon"></i>
+                        <h3>مبيعات التطبيقات</h3>
+                        <p class="amount text-warning" id="dash-apps">0 د.ع</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= إغلاق المبيعات ================= -->
+            <section id="daily-sales" class="page">
+                <h2 class="page-title"><i class="fas fa-cash-register text-primary"></i> تسجيل وإغلاق مبيعات اليوم</h2>
+                <div class="form-container" style="max-width: 900px;">
+                    <form id="sales-form">
+                        <div class="grid-2">
+                            <div class="form-group"><label>تاريخ المبيعات</label><input type="date" id="sales_date" required></div>
+                            <div class="form-group"><label>المبيعات الكلية (د.ع)</label><input type="number" id="sales_total" required value="0" style="font-weight: bold; font-size: 1.1rem; color: var(--primary);"></div>
+                        </div>
+                        
+                        <span class="section-label"><i class="fas fa-mobile-alt"></i> تطبيقات التوصيل والدفع الإلكتروني (تُخصم من النقد)</span>
+                        <div class="grid-4">
+                            <div class="form-group"><label>توترز</label><input type="number" id="sales_toters" value="0"></div>
+                            <div class="form-group"><label>طلباتي</label><input type="number" id="sales_talabaty" value="0"></div>
+                            <div class="form-group"><label>بلي</label><input type="number" id="sales_baly" value="0"></div>
+                            <div class="form-group"><label>دفع إلكتروني</label><input type="number" id="sales_epay" value="0"></div>
+                        </div>
+
+                        <span class="section-label"><i class="fas fa-minus-circle"></i> مستقطعات أخرى من المبيعات (تُخصم من النقد)</span>
+                        <div class="grid-3">
+                            <div class="form-group"><label>مرتجع مبيعات</label><input type="number" id="sales_return" value="0"></div>
+                            <div class="form-group"><label>إلغاء أوردر</label><input type="number" id="sales_canceled" value="0"></div>
+                            <div class="form-group"><label>أجور توصيل</label><input type="number" id="sales_delivery" value="0"></div>
+                        </div>
+                        
+                        <div class="result-box">
+                            <div class="expenses-highlight-box">
+                                <h3 style="color: var(--danger); margin-bottom: 5px;"><i class="fas fa-receipt"></i> إجمالي صرفيات الكاشير لهذا اليوم:</h3>
+                                <h2 id="cashier_deductions_today" class="text-danger">0 د.ع</h2>
+                            </div>
+                            
+                            <h3 style="color: var(--dark); margin-top: 20px;"><i class="fas fa-box"></i> صافي النقد المتوقع للصندوق:</h3>
+                            <p style="font-size: 0.9rem; color: var(--secondary); margin-bottom: 10px;">(المبيعات الكلية - التطبيقات - المستقطعات - صرفيات الكاشير)</p>
+                            <h2 id="expected_cash_result" class="text-success" style="font-size: 2.5rem; font-weight: 800;">0 د.ع</h2>
+                        </div>
+                        <button type="submit" class="btn-primary" style="font-size: 1.2rem; padding: 15px;"><i class="fas fa-save"></i> ترحيل مبيعات اليوم للتقارير</button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- ================= الصرفيات ================= -->
+            <section id="expenses" class="page">
+                <h2 class="page-title"><i class="fas fa-file-invoice-dollar text-primary"></i> إدارة الصرفيات اليومية</h2>
+                <div class="grid-2">
+                    <div class="form-container">
+                        <h3><i class="fas fa-plus-circle text-primary"></i> تسجيل صرفية جديدة</h3>
+                        <form id="expense-form">
+                            <div class="grid-2">
+                                <div class="form-group"><label>التاريخ</label><input type="date" id="exp_date" required></div>
+                                <div class="form-group">
+                                    <label>مصدر الدفع</label>
+                                    <select id="exp_source" required>
+                                        <option value="cashier">صندوق الكاشير (يقلل النقد)</option>
+                                        <option value="admin">خارج الصندوق / الإدارة</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>تصنيف الصرفية (ابحث أو اكتب جديد)</label>
+                                <input list="categories-list" id="exp_account" required placeholder="مثال: لحم، خضار، كهرباء..." autocomplete="off">
+                                <datalist id="categories-list"></datalist>
+                            </div>
+                            <div class="form-group"><label>المبلغ (د.ع)</label><input type="number" id="exp_amount" required min="1" style="font-weight: bold; color: var(--danger);"></div>
+                            <div class="form-group"><label>الملاحظات / المستفيد</label><input type="text" id="exp_supplier" placeholder="تفاصيل إضافية (اختياري)"></div>
+                            <button type="submit" class="btn-primary"><i class="fas fa-check"></i> حفظ الصرفية</button>
+                        </form>
+                    </div>
+                    
+                    <div class="table-container">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h3 style="margin: 0; border: none;"><i class="fas fa-list text-primary"></i> آخر الصرفيات المدخلة</h3>
+                            <div class="no-print" style="display: flex; gap: 8px;">
+                                <button class="btn-small" onclick="window.print()"><i class="fas fa-print"></i> طباعة</button>
+                                <button class="btn-small btn-success" onclick="exportTableToCSV('recent-expenses-table', 'expenses.csv')"><i class="fas fa-file-excel"></i> إكسل</button>
+                            </div>
+                        </div>
+                        <div class="filter-bar no-print">
+                            <div class="form-group" style="margin: 0; flex: 1;"><label>تاريخ الصرفية</label><input type="date" id="exp_filter_date"></div>
+                            <div class="form-group" style="margin: 0; flex: 1;">
+                                <label>مصدر الدفع</label>
+                                <select id="exp_filter_source">
+                                    <option value="all">الكل</option>
+                                    <option value="cashier">صندوق الكاشير</option>
+                                    <option value="admin">الإدارة</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="overflow-x: auto;">
+                            <table id="recent-expenses-table">
+                                <thead>
+                                    <tr><th>التصنيف</th><th>الملاحظة</th><th>المبلغ</th><th>الصندوق</th><th class="no-print">إجراء</th></tr>
+                                </thead>
+                                <tbody id="recent-expenses-tbody"></tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="2" style="text-align: left;">المجموع الكلي:</td>
+                                        <td id="recent-expenses-total" class="text-danger" style="font-size: 1.2rem;">0 د.ع</td>
+                                        <td></td><td class="no-print"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= السلف والرواتب ================= -->
+            <section id="employees" class="page">
+                <h2 class="page-title"><i class="fas fa-users text-primary"></i> إدارة سلف ورواتب الموظفين</h2>
+                <div class="grid-2">
+                    <div class="form-container" style="border-top: 4px solid var(--warning);">
+                        <h3><i class="fas fa-hand-holding-usd text-warning"></i> تسجيل سلفة / سحب راتب</h3>
+                        <form id="advance-form">
+                            <div class="grid-2">
+                                <div class="form-group"><label>التاريخ</label><input type="date" id="adv_date" required></div>
+                                <div class="form-group"><label>مصدر الدفع</label>
+                                    <select id="adv_source" required>
+                                        <option value="cashier">صندوق الكاشير</option>
+                                        <option value="admin">الإدارة</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>اسم الموظف (ابحث أو اكتب اسم جديد)</label>
+                                <input list="employees-list" id="adv_employee" required placeholder="مثال: أحمد محمد" autocomplete="off">
+                                <datalist id="employees-list"></datalist>
+                            </div>
+                            <div class="form-group"><label>المبلغ (د.ع)</label><input type="number" id="adv_amount" required min="1"></div>
+                            <button type="submit" class="btn-primary" style="background: var(--warning); color: #000;"><i class="fas fa-plus"></i> تسجيل السحب</button>
+                        </form>
+                    </div>
+                    
+                    <div class="table-container">
+                        <h3><i class="fas fa-address-book text-primary"></i> أرصدة سلف الموظفين الحالية</h3>
+                        <p class="no-print" style="font-size: 0.85rem; color: var(--secondary); margin-bottom: 15px;"><i class="fas fa-info-circle"></i> انقر على اسم الموظف لعرض كشف حسابه التفصيلي.</p>
+                        <div style="overflow-x: auto;">
+                            <table>
+                                <thead><tr><th>اسم الموظف</th><th>إجمالي السلف (المطلوب)</th><th class="no-print">إجراء</th></tr></thead>
+                                <tbody id="advances-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- كشف حساب الموظف -->
+                <div class="table-container" id="emp-statement-container" style="display: none; border: 1px solid var(--primary); box-shadow: 0 0 15px rgba(79,70,229,0.1);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 15px;">
+                        <h3 style="margin:0; border:none;"><i class="fas fa-file-invoice text-primary"></i> كشف حساب: <span id="statement-emp-name" class="text-primary" style="font-weight: 800;">---</span></h3>
+                        <div class="no-print" style="display: flex; gap: 8px;">
+                            <button class="btn-small" onclick="window.print()"><i class="fas fa-print"></i> طباعة الكشف</button>
+                            <button class="btn-small" id="btn-close-statement" style="background: var(--secondary);"><i class="fas fa-times"></i> إغلاق</button>
+                        </div>
+                    </div>
+                    <div class="filter-bar no-print">
+                        <div class="form-group" style="margin: 0; flex: 1;"><label>من تاريخ</label><input type="date" id="emp_date_from"></div>
+                        <div class="form-group" style="margin: 0; flex: 1;"><label>إلى تاريخ</label><input type="date" id="emp_date_to"></div>
+                        <button class="btn-primary" id="btn-filter-emp-statement" style="margin: 0; width: auto; padding: 12px 25px;"><i class="fas fa-search"></i> عرض</button>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table>
+                            <thead>
+                                <tr><th>التاريخ</th><th>العملية</th><th>مصدر الصرف</th><th>المبلغ</th><th class="no-print">إجراء</th></tr>
+                            </thead>
+                            <tbody id="emp-statement-tbody"></tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3" style="text-align: left;">إجمالي المسحوبات للفترة المحددة:</td>
+                                    <td id="emp-statement-total" class="text-danger" style="font-size: 1.2rem;">0 د.ع</td>
+                                    <td class="no-print"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= المشتريات والديون ================= -->
+            <section id="purchases" class="page">
+                <h2 class="page-title"><i class="fas fa-truck-loading text-primary"></i> المشتريات الآجلة وتسديد الديون</h2>
+                <div class="grid-2">
+                    <div class="form-container" style="border-top: 4px solid var(--danger);">
+                        <h3><i class="fas fa-cart-plus text-danger"></i> تسجيل فاتورة شراء (بالآجل)</h3>
+                        <form id="purchase-form">
+                            <div class="form-group"><label>التاريخ</label><input type="date" id="pur_date" required></div>
+                            <div class="form-group">
+                                <label>اسم المجهز (ابحث أو اكتب جديد)</label>
+                                <input list="suppliers-list" id="pur_supplier" required placeholder="مثال: شركة اللحوم" autocomplete="off">
+                                <datalist id="suppliers-list"></datalist>
+                            </div>
+                            <div class="form-group"><label>قيمة الفاتورة (د.ع)</label><input type="number" id="pur_total" required min="1"></div>
+                            <button type="submit" class="btn-primary" style="background: var(--danger);"><i class="fas fa-plus"></i> إضافة الدين للمجهز</button>
+                        </form>
+                    </div>
+                    
+                    <div class="form-container" style="border-top: 4px solid var(--success);">
+                        <h3><i class="fas fa-money-bill-wave text-success"></i> تسديد دفعة لمجهز</h3>
+                        <form id="debt-form">
+                            <div class="grid-2">
+                                <div class="form-group"><label>التاريخ</label><input type="date" id="debt_date" required></div>
+                                <div class="form-group"><label>مصدر الدفع</label>
+                                    <select id="debt_source" required>
+                                        <option value="cashier">صندوق الكاشير</option>
+                                        <option value="admin">الإدارة</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group"><label>المجهز (المطلوب له)</label><select id="debt_supplier" required></select></div>
+                            <div class="form-group"><label>المبلغ المسدد (د.ع)</label><input type="number" id="debt_amount" required min="1"></div>
+                            <button type="submit" class="btn-primary" style="background: var(--success);"><i class="fas fa-check"></i> تسديد وتسجيل كصرفية</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <h3><i class="fas fa-clipboard-list text-primary"></i> أرصدة المجهزين (الديون القائمة)</h3>
+                    <p class="no-print" style="font-size: 0.85rem; color: var(--secondary); margin-bottom: 15px;"><i class="fas fa-info-circle"></i> انقر على اسم المجهز لعرض حركة الحساب (الفواتير والتسديدات).</p>
+                    <div style="overflow-x: auto;">
+                        <table>
+                            <thead><tr><th>اسم المجهز</th><th>الرصيد المطلوب (دين علينا)</th></tr></thead>
+                            <tbody id="debts-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- كشف حساب المجهز -->
+                <div class="table-container" id="supplier-statement-container" style="display: none; border: 1px solid var(--warning); box-shadow: 0 0 15px rgba(245,158,11,0.1);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 15px;">
+                        <h3 style="margin:0; border:none;"><i class="fas fa-file-alt text-warning"></i> كشف حركة المجهز: <span id="statement-supplier-name" class="text-primary" style="font-weight: 800;">---</span></h3>
+                        <div class="no-print" style="display: flex; gap: 8px;">
+                            <button class="btn-small" onclick="window.print()"><i class="fas fa-print"></i> طباعة الكشف</button>
+                            <button class="btn-small" id="btn-close-supplier-statement" style="background: var(--secondary);"><i class="fas fa-times"></i> إغلاق</button>
+                        </div>
+                    </div>
+                    <div class="filter-bar no-print">
+                        <div class="form-group" style="margin: 0; flex: 1;"><label>من تاريخ</label><input type="date" id="sup_date_from"></div>
+                        <div class="form-group" style="margin: 0; flex: 1;"><label>إلى تاريخ</label><input type="date" id="sup_date_to"></div>
+                        <button class="btn-primary" id="btn-filter-sup-statement" style="margin: 0; width: auto; padding: 12px 25px; background: var(--warning); color: #000;"><i class="fas fa-search"></i> عرض</button>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table>
+                            <thead>
+                                <tr><th>التاريخ</th><th>نوع الحركة</th><th>التفاصيل / الصندوق</th><th>المبلغ</th></tr>
+                            </thead>
+                            <tbody id="sup-statement-tbody"></tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3" style="text-align: left;">صافي الحركة للفترة المحددة:</td>
+                                    <td id="sup-statement-total" style="font-size: 1.2rem; font-weight: 800;">0 د.ع</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= التقارير ================= -->
+            <section id="reports" class="page">
+                <h2 class="page-title"><i class="fas fa-chart-line text-primary"></i> مركز التقارير والاستعلامات</h2>
+                
+                <div class="form-container no-print" style="background: var(--dark); color: white; border-radius: var(--radius-lg);">
+                    <div class="grid-3">
+                        <div class="form-group"><label style="color: #cbd5e1;">من تاريخ</label><input type="date" id="rep_date_from" style="background: rgba(255,255,255,0.1); color: white; border: none;"></div>
+                        <div class="form-group"><label style="color: #cbd5e1;">إلى تاريخ</label><input type="date" id="rep_date_to" style="background: rgba(255,255,255,0.1); color: white; border: none;"></div>
+                        <div class="form-group" style="display: flex; align-items: flex-end;">
+                            <button class="btn-primary" id="btn-generate-reports" style="margin: 0;"><i class="fas fa-sync-alt"></i> تحديث التقرير</button>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 class="section-label" style="font-size: 1.2rem; margin-top: 30px;"><i class="fas fa-chart-bar"></i> تحليل المبيعات للفترة المحددة</h3>
+                
+                <div class="dashboard-cards" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+                    <div class="card card-primary" style="padding: 15px;"><h3>المبيعات الكلية</h3><p class="amount" id="rep_sales_total" style="font-size: 1.5rem;">0</p></div>
+                    <div class="card card-warning" style="padding: 15px;"><h3>مبيعات توترز</h3><p class="amount text-warning" id="rep_sales_toters" style="font-size: 1.5rem;">0</p></div>
+                    <div class="card card-warning" style="padding: 15px;"><h3>مبيعات طلباتي</h3><p class="amount text-warning" id="rep_sales_talabaty" style="font-size: 1.5rem;">0</p></div>
+                    <div class="card card-warning" style="padding: 15px;"><h3>مبيعات بلي</h3><p class="amount text-warning" id="rep_sales_baly" style="font-size: 1.5rem;">0</p></div>
+                    <div class="card card-warning" style="padding: 15px;"><h3>الدفع الإلكتروني</h3><p class="amount text-warning" id="rep_sales_epay" style="font-size: 1.5rem;">0</p></div>
+                </div>
+                <div class="dashboard-cards" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                    <div class="card card-danger" style="padding: 15px;"><h3>مرتجعات المبيعات</h3><p class="amount text-danger" id="rep_sales_return" style="font-size: 1.5rem;">0</p></div>
+                    <div class="card card-danger" style="padding: 15px;"><h3>إلغاء أوردر</h3><p class="amount text-danger" id="rep_sales_canceled" style="font-size: 1.5rem;">0</p></div>
+                    <div class="card card-danger" style="padding: 15px;"><h3>أجور التوصيل</h3><p class="amount text-danger" id="rep_sales_delivery" style="font-size: 1.5rem;">0</p></div>
                 </div>
                 
-                <div class="grid-4">
-                    <select id="filterYear" class="form-control">
-                        <option value="">كل سنوات التخرج</option>
-                        <option value="2022-2023">2022-2023</option>
-                        <option value="2023-2024">2023-2024</option>
-                        <option value="2024-2025">2024-2025</option>
-                        <option value="2025-2026">2025-2026</option>
-                    </select>
-                    <input type="number" id="filterGPA" class="form-control" placeholder="الحد الأدنى للمعدل (مثال: 80)">
-                    <input type="text" id="filterAddress" class="form-control" placeholder="السكن (مثال: ذي قار)">
-                    <input type="number" id="filterDays" class="form-control" placeholder="أيام التفرغ (مثال: 3)">
+                <div class="grid-2" style="margin-bottom: 30px;">
+                    <div class="card card-success" style="background: #f0fdf4; border-color: #16a34a;">
+                        <h3 style="color: #166534;"><i class="fas fa-money-bill"></i> صافي المبيعات النقدية (الكاش فقط)</h3>
+                        <p class="amount text-success" id="rep_sales_net_cash" style="font-size: 2rem;">0 د.ع</p>
+                    </div>
+                    <div class="card card-primary" style="background: #eff6ff; border-color: var(--primary);">
+                        <h3 style="color: var(--primary);"><i class="fas fa-credit-card"></i> إجمالي النقد + الدفع الإلكتروني</h3>
+                        <p class="amount text-primary" id="rep_sales_cash_epay" style="font-size: 2rem;">0 د.ع</p>
+                    </div>
                 </div>
-            </div>
 
-            <div id="loading" class="loading"><i class="fas fa-spinner fa-spin"></i> جاري جلب البيانات...</div>
+                <div class="table-container">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+                        <h3 style="margin: 0; border: none;"><i class="fas fa-list-alt text-primary"></i> كشف الصرفيات التفصيلي</h3>
+                        <div class="no-print" style="display: flex; gap: 8px;">
+                            <button class="btn-small" onclick="window.print()"><i class="fas fa-print"></i> طباعة</button>
+                            <button class="btn-small btn-success" onclick="exportTableToCSV('reports-table', 'reports.csv')"><i class="fas fa-file-excel"></i> إكسل</button>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-bar no-print" style="background: #f8fafc;">
+                        <div class="form-group" style="margin: 0; flex: 1;">
+                            <label>تصفية حسب التصنيف</label>
+                            <select id="rep_filter_account"><option value="all">الكل</option></select>
+                        </div>
+                        <div class="form-group" style="margin: 0; flex: 1;">
+                            <label>تصفية حسب الصندوق</label>
+                            <select id="rep_filter_source">
+                                <option value="all">الكل</option><option value="cashier">صندوق الكاشير</option><option value="admin">الإدارة</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin: 0; flex: 1; display: flex; align-items: flex-end;">
+                            <div style="background: white; padding: 12px; border-radius: var(--radius-md); width: 100%; border: 1px solid var(--border); text-align: center;">
+                                <span style="font-size: 0.9rem; color: var(--secondary);">مجموع الصرفيات المعروضة:</span><br>
+                                <span id="rep_expenses_sum" class="text-danger" style="font-size: 1.3rem; font-weight: 800;">0 د.ع</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="overflow-x: auto;">
+                        <table id="reports-table">
+                            <thead><tr><th>التاريخ</th><th>التصنيف</th><th>الملاحظة/المستفيد</th><th>الصندوق</th><th>المبلغ</th></tr></thead>
+                            <tbody id="rep_expenses_tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
 
-            <div class="table-responsive">
-                <table id="dataTable">
-                    <thead>
-                        <tr>
-                            <th>الاسم الرباعي</th>
-                            <th>الواتساب</th>
-                            <th>السكن</th>
-                            <th>المعدل</th>
-                            <th>التخرج</th>
-                            <th>متعين؟</th>
-                            <th>التفرغ</th>
-                            <th>القسم المهتم به</th>
-                            <th>تاريخ التقديم</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody">
-                        <!-- البيانات تظهر هنا -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
+            <!-- ================= الإعدادات ================= -->
+            <section id="settings" class="page">
+                <h2 class="page-title"><i class="fas fa-cog text-primary"></i> إعدادات النظام وإدارة المستخدمين</h2>
+                <div class="grid-2">
+                    <div class="form-container">
+                        <h3><i class="fas fa-user-plus text-primary"></i> إضافة مستخدم جديد</h3>
+                        <form id="add-user-form">
+                            <div class="form-group"><label>اسم المستخدم</label><input type="text" id="new_username" required></div>
+                            <div class="form-group"><label>كلمة المرور</label><input type="password" id="new_password" required></div>
+                            <div class="form-group">
+                                <label>نوع الصلاحية</label>
+                                <select id="new_role">
+                                    <option value="user">مستخدم عادي (كاشير)</option>
+                                    <option value="admin">مدير (صلاحيات كاملة)</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn-primary"><i class="fas fa-save"></i> حفظ المستخدم</button>
+                        </form>
+                    </div>
+                    <div class="table-container">
+                        <h3><i class="fas fa-users-cog text-primary"></i> المستخدمين الحاليين</h3>
+                        <div style="overflow-x: auto;">
+                            <table>
+                                <thead><tr><th>المستخدم</th><th>الصلاحية</th><th>إجراء</th></tr></thead>
+                                <tbody id="users-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
     </div>
 
+    <!-- نفس كود الجافاسكربت السابق دون أي تغيير في المنطق -->
     <script>
-        const scriptURL = 'https://script.google.com/macros/s/AKfycbzDkyOOu7zcvPR2M-YcUBm7znC3b0LmDktB-9D8YYSpAxLiQWQaJEiz-a-qetMn856N/exec'; 
-        let allData = []; // لتخزين البيانات القادمة من السيرفر
+        const supabaseUrl = 'https://ztulochyubbyudgcrodp.supabase.co'; 
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0dWxvY2h5dWJieXVkZ2Nyb2RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5OTUwNjEsImV4cCI6MjEwNzU3MTA2MX0.p78OLnHcUfBmB-PINuw0-xx4dRp-exf99CqRHxhn8QI'; 
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
-        // إرسال الاستمارة
-        document.getElementById('jobForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const submitBtn = this.querySelector('button[type="submit"]');
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإرسال...';
-            submitBtn.style.pointerEvents = 'none';
+        let state = { salesRecords: [], expenses: [], purchasesHistory: [], debts: {}, categories: [], employees: {} };
+        let selectedEmployeeForStatement = ''; let selectedSupplierForStatement = ''; let currentUser = null;
+        
+        const formatCurrency = (num) => new Intl.NumberFormat('ar-IQ').format(num) + ' د.ع';
+        const getTodayStr = () => new Date().toISOString().split('T')[0];
 
-            const newApp = {
-                fullName: document.getElementById('fullName').value.trim(),
-                whatsapp: document.getElementById('whatsapp').value.trim(),
-                address: document.getElementById('address').value.trim(),
-                landmark: document.getElementById('landmark').value.trim(),
-                gpa: parseFloat(document.getElementById('gpa').value),
-                gradYear: document.getElementById('gradYear').value,
-                isEmployed: document.querySelector('input[name="isEmployed"]:checked').value,
-                availableDays: parseInt(document.getElementById('availableDays').value),
-                specialization: document.getElementById('specialization').value.trim()
-            };
+        const todayStr = getTodayStr();
+        document.getElementById('global-date').value = todayStr;
+        ['sales_date', 'exp_date', 'exp_filter_date', 'adv_date', 'emp_date_from', 'emp_date_to', 'pur_date', 'debt_date', 'sup_date_from', 'sup_date_to', 'rep_date_from', 'rep_date_to'].forEach(id => document.getElementById(id).value = todayStr);
 
-            fetch(scriptURL, { method: 'POST', body: JSON.stringify(newApp) })
-            .then(res => res.json())
-            .then(data => { alert('تم التقديم بنجاح!'); document.getElementById('jobForm').reset(); })
-            .catch(error => { alert('تم الإرسال!'); document.getElementById('jobForm').reset(); })
-            .finally(() => { submitBtn.innerHTML = 'إرسال الاستمارة <i class="fas fa-paper-plane"></i>'; submitBtn.style.pointerEvents = 'auto'; });
+        function applyUserRoleAndShowApp() {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('app-container').style.display = 'flex';
+            document.getElementById('logged-user-name').textContent = currentUser.username;
+            
+            if (currentUser.role === 'admin') {
+                document.getElementById('reports-link').style.display = 'block';
+                document.getElementById('settings-link').style.display = 'block';
+                loadUsers();
+            } else {
+                document.getElementById('reports-link').style.display = 'none';
+                document.getElementById('settings-link').style.display = 'none';
+                if (document.getElementById('reports').classList.contains('active') || document.getElementById('settings').classList.contains('active')) {
+                    document.querySelector('[data-target="dashboard"]').click();
+                }
+            }
+        }
+
+        window.login = async function() {
+            const user = document.getElementById('login-username').value.trim();
+            const pass = document.getElementById('login-password').value.trim();
+            if(!user || !pass) return;
+
+            document.getElementById('loader').style.display = 'flex';
+            try {
+                const { data, error } = await supabaseClient.from('users').select('*').eq('username', user).eq('password', pass);
+                if (data && data.length > 0) {
+                    currentUser = data[0];
+                    localStorage.setItem('restaurant_user', JSON.stringify(currentUser));
+                    applyUserRoleAndShowApp(); await fetchInitialData();
+                } else {
+                    document.getElementById('loader').style.display = 'none';
+                    document.getElementById('login-error').style.display = 'block';
+                }
+            } catch (err) {
+                document.getElementById('loader').style.display = 'none';
+                alert("حدث خطأ في الاتصال بقاعدة البيانات.");
+            }
+        }
+
+        window.logout = function() {
+            localStorage.removeItem('restaurant_user'); currentUser = null;
+            document.getElementById('app-container').style.display = 'none';
+            document.getElementById('login-screen').style.display = 'flex';
+            document.getElementById('login-username').value = ''; document.getElementById('login-password').value = '';
+            document.getElementById('login-error').style.display = 'none';
+            document.querySelectorAll('.nav-links a, .page').forEach(el => el.classList.remove('active'));
+            document.querySelector('[data-target="dashboard"]').classList.add('active');
+            document.getElementById('dashboard').classList.add('active');
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const savedUser = localStorage.getItem('restaurant_user');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                document.getElementById('loader').style.display = 'flex';
+                applyUserRoleAndShowApp(); await fetchInitialData();
+            }
         });
 
-        // نظام تسجيل الدخول للإدارة
-        function checkPassword() {
-            const pass = document.getElementById('adminPassword').value;
-            if(pass === '10313$Ay') {
-                document.getElementById('loginModal').classList.remove('active');
-                document.getElementById('formView').classList.remove('active');
-                document.getElementById('adminView').classList.add('active');
-                document.getElementById('adminPassword').value = '';
-                fetchData();
-            } else {
-                alert('رمز المرور غير صحيح!');
-            }
-        }
-
-        function logout() {
-            document.getElementById('adminView').classList.remove('active');
-            document.getElementById('formView').classList.add('active');
-            allData = [];
-            document.getElementById('tableBody').innerHTML = '';
-        }
-
-        // جلب البيانات من Google Sheets
-        function fetchData() {
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('tableBody').innerHTML = '';
-            
-            fetch(scriptURL) // طلب GET
-            .then(res => res.json())
-            .then(response => {
-                document.getElementById('loading').style.display = 'none';
-                if(response.result === 'success') {
-                    // response.data عبارة عن مصفوفة ثنائية الأبعاد، السطر الأول هو العناوين
-                    const rows = response.data;
-                    if(rows.length > 1) {
-                        allData = rows.slice(1); // إزالة صف العناوين
-                        renderTable(allData);
-                    }
-                }
-            })
-            .catch(error => {
-                document.getElementById('loading').innerHTML = 'حدث خطأ في الاتصال بالبيانات.';
-            });
-        }
-
-        // بناء الجدول
-        function renderTable(dataArray) {
-            const tbody = document.getElementById('tableBody');
+        async function loadUsers() {
+            if (currentUser.role !== 'admin') return;
+            const { data } = await supabaseClient.from('users').select('*');
+            const tbody = document.getElementById('users-tbody');
             tbody.innerHTML = '';
-            document.getElementById('totalCount').innerText = dataArray.length;
-
-            dataArray.forEach(row => {
-                const tr = document.createElement('tr');
-                // بناءً على ترتيب الأعمدة في شيت جوجل:
-                // 1: الاسم, 2: الواتساب, 3: السكن, 5: المعدل, 6: التخرج, 7: متعين, 8: التفرغ, 9: القسم, 10: التاريخ
-                tr.innerHTML = `
-                    <td><strong>${row[1] || ''}</strong></td>
-                    <td dir="ltr" style="text-align: right;">${row[2] || ''}</td>
-                    <td>${row[3] || ''}</td>
-                    <td>${row[5] || ''}%</td>
-                    <td>${row[6] || ''}</td>
-                    <td>${row[7] || ''}</td>
-                    <td>${row[8] || ''} أيام</td>
-                    <td>${row[9] || ''}</td>
-                    <td>${row[10] || ''}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        // نظام الفلترة والبحث الاحترافي (حساب الأولويات)
-        function applyFilters() {
-            const searchTxt = document.getElementById('searchBox').value.toLowerCase().trim();
-            const fYear = document.getElementById('filterYear').value;
-            const fGPA = parseFloat(document.getElementById('filterGPA').value) || 0;
-            const fAddress = document.getElementById('filterAddress').value.toLowerCase().trim();
-            const fDays = parseInt(document.getElementById('filterDays').value) || 0;
-
-            let filtered = allData.filter(row => {
-                // الفلاتر العادية
-                const rowYear = row[6] || '';
-                const rowGPA = parseFloat(row[5]) || 0;
-                const rowAddress = String(row[3] || '').toLowerCase();
-                const rowDays = parseInt(row[8]) || 0;
-
-                if (fYear && rowYear !== fYear) return false;
-                if (fGPA > 0 && rowGPA < fGPA) return false;
-                if (fAddress && !rowAddress.includes(fAddress)) return false;
-                if (fDays > 0 && rowDays < fDays) return false;
-
-                return true;
-            });
-
-            // تطبيق البحث الشامل وحساب درجة التطابق (Priority)
-            if (searchTxt !== '') {
-                filtered = filtered.map(row => {
-                    let score = 0;
-                    const name = String(row[1] || '').toLowerCase();
-                    const whatsapp = String(row[2] || '').toLowerCase();
-                    const address = String(row[3] || '').toLowerCase();
-                    const spec = String(row[9] || '').toLowerCase();
-
-                    // إذا كان الاسم يبدأ بكلمة البحث تماماً (أولوية قصوى)
-                    if (name.startsWith(searchTxt)) score = 100;
-                    // إذا كان الاسم يحتوي على الكلمة 
-                    else if (name.includes(searchTxt)) score = 50;
-                    
-                    // بحث في باقي الحقول
-                    if (whatsapp.includes(searchTxt)) score = Math.max(score, 40);
-                    if (spec.includes(searchTxt)) score = Math.max(score, 30);
-                    if (address.includes(searchTxt)) score = Math.max(score, 20);
-
-                    return { row, score };
-                })
-                .filter(item => item.score > 0) // استبعاد من لم يطابق
-                .sort((a, b) => b.score - a.score) // ترتيب حسب الأولوية
-                .map(item => item.row); // إرجاع البيانات فقط
+            if(data) {
+                data.forEach(u => {
+                    tbody.innerHTML += `<tr>
+                        <td>${u.username}</td><td>${u.role === 'admin' ? '<span class="badge-plus" style="background:#e0e7ff; color:#3730a3;">مدير</span>' : 'مستخدم'}</td>
+                        <td>${u.username !== 'admin' ? `<button class="btn-small btn-danger-outline" onclick="deleteUser(${u.id})"><i class="fas fa-trash"></i></button>` : ''}</td>
+                    </tr>`;
+                });
             }
-
-            renderTable(filtered);
         }
 
-        // تفعيل الفلاتر عند الكتابة أو التغيير
-        document.getElementById('searchBox').addEventListener('input', applyFilters);
-        document.getElementById('filterYear').addEventListener('change', applyFilters);
-        document.getElementById('filterGPA').addEventListener('input', applyFilters);
-        document.getElementById('filterAddress').addEventListener('input', applyFilters);
-        document.getElementById('filterDays').addEventListener('input', applyFilters);
+        document.getElementById('add-user-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('new_username').value;
+            const password = document.getElementById('new_password').value;
+            const role = document.getElementById('new_role').value;
+            await supabaseClient.from('users').insert([{ username, password, role }]);
+            e.target.reset(); loadUsers(); alert('تمت الإضافة بنجاح');
+        });
+
+        window.deleteUser = async function(id) {
+            if(confirm("تأكيد الحذف؟")) { await supabaseClient.from('users').delete().eq('id', id); loadUsers(); }
+        }
+
+        async function fetchInitialData() {
+            try {
+                const [salesRes, expRes, purRes, debtRes, empRes, catRes] = await Promise.all([
+                    supabaseClient.from('sales').select('*'), supabaseClient.from('expenses').select('*'),
+                    supabaseClient.from('purchases').select('*'), supabaseClient.from('debts').select('*'),
+                    supabaseClient.from('employees').select('*'), supabaseClient.from('categories').select('*')
+                ]);
+                state.salesRecords = salesRes.data || []; state.expenses = expRes.data || []; state.purchasesHistory = purRes.data || [];
+                (debtRes.data || []).forEach(d => state.debts[d.supplier_name] = d.amount);
+                (empRes.data || []).forEach(e => state.employees[e.employee_name] = e.amount);
+                state.categories = (catRes.data || []).map(c => c.name);
+                updateCategoriesList(); updateDailyUI(); document.getElementById('loader').style.display = 'none';
+            } catch (error) {
+                document.getElementById('loader').style.display = 'none'; alert("خطأ جلب البيانات");
+            }
+        }
+
+        function updateCategoriesList() {
+            const list = document.getElementById('categories-list'); const repSelect = document.getElementById('rep_filter_account');
+            list.innerHTML = ''; repSelect.innerHTML = '<option value="all">الكل</option>';
+            state.categories.forEach(cat => { list.innerHTML += `<option value="${cat}">`; repSelect.innerHTML += `<option value="${cat}">${cat}</option>`; });
+            repSelect.innerHTML += `<option value="سحب من الراتب">سحب من الراتب</option>`;
+        }
+
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.querySelectorAll('.nav-links a, .page').forEach(el => el.classList.remove('active'));
+                link.classList.add('active'); document.getElementById(link.getAttribute('data-target')).classList.add('active');
+                if(link.getAttribute('data-target') === 'reports') generateReports();
+            });
+        });
+
+        function updateDailyUI() {
+            const selectedSalesDate = document.getElementById('sales_date').value;
+            const sTotal = parseFloat(document.getElementById('sales_total').value) || 0;
+            const appsTotal = ['sales_toters', 'sales_talabaty', 'sales_baly', 'sales_epay'].reduce((sum, id) => sum + (parseFloat(document.getElementById(id).value) || 0), 0);
+            const deductions = ['sales_return', 'sales_canceled', 'sales_delivery'].reduce((sum, id) => sum + (parseFloat(document.getElementById(id).value) || 0), 0);
+            const selectedDayCashierExp = state.expenses.filter(ex => ex.date === selectedSalesDate && ex.source === 'cashier').reduce((sum, ex) => sum + Number(ex.amount), 0);
+            const selectedDayAllExp = state.expenses.filter(ex => ex.date === selectedSalesDate).reduce((sum, ex) => sum + Number(ex.amount), 0);
+            const isFormEmpty = (sTotal === 0 && appsTotal === 0 && deductions === 0);
+
+            document.getElementById('cashier_deductions_today').textContent = formatCurrency(selectedDayCashierExp);
+            document.getElementById('expected_cash_result').textContent = formatCurrency(isFormEmpty ? 0 : (sTotal - appsTotal - deductions - selectedDayCashierExp));
+            document.getElementById('dash-total-sales').textContent = formatCurrency(sTotal);
+            document.getElementById('dash-expected-cash').textContent = formatCurrency(isFormEmpty ? 0 : (sTotal - appsTotal - deductions - selectedDayCashierExp));
+            document.getElementById('dash-expenses').textContent = formatCurrency(selectedDayAllExp);
+            document.getElementById('dash-apps').textContent = formatCurrency(appsTotal);
+
+            renderRecentExpenses(); renderDebtsAndEmployees();
+        }
+
+        function renderRecentExpenses() {
+            const filterDate = document.getElementById('exp_filter_date').value; const filterSource = document.getElementById('exp_filter_source').value;
+            const tbody = document.getElementById('recent-expenses-tbody'); const totalEl = document.getElementById('recent-expenses-total');
+            tbody.innerHTML = ''; let filteredSum = 0;
+            const filteredExp = state.expenses.filter(ex => (filterDate === '' || ex.date === filterDate) && (filterSource === 'all' || ex.source === filterSource));
+            filteredExp.reverse().forEach(ex => {
+                filteredSum += Number(ex.amount);
+                tbody.innerHTML += `<tr><td>${ex.account}</td><td>${ex.supplier}</td><td class="text-danger font-bold">${formatCurrency(ex.amount)}</td>
+                    <td><span style="background: #f1f5f9; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${ex.source === 'cashier' ? 'الكاشير' : 'الإدارة'}</span></td>
+                    <td class="no-print"><button class="btn-small btn-danger-outline" onclick="deleteExpense(${ex.id})"><i class="fas fa-trash"></i></button></td></tr>`;
+            });
+            totalEl.textContent = formatCurrency(filteredSum);
+        }
+
+        document.getElementById('exp_filter_date').addEventListener('change', renderRecentExpenses);
+        document.getElementById('exp_filter_source').addEventListener('change', renderRecentExpenses);
+
+        function renderDebtsAndEmployees() {
+            const debtsTbody = document.getElementById('debts-tbody'); const debtSupplierSelect = document.getElementById('debt_supplier');
+            const suppliersDatalist = document.getElementById('suppliers-list');
+            debtsTbody.innerHTML = ''; debtSupplierSelect.innerHTML = '<option disabled selected>اختر المجهز...</option>'; suppliersDatalist.innerHTML = '';
+
+            for (let sup in state.debts) {
+                suppliersDatalist.innerHTML += `<option value="${sup}">`;
+                debtsTbody.innerHTML += `<tr><td><button class="btn-link btn-view-sup-statement" data-sup="${sup}"><i class="fas fa-user-tag"></i> ${sup}</button></td>
+                    <td class="${state.debts[sup] > 0 ? 'text-danger' : 'text-success'} font-bold">${formatCurrency(state.debts[sup])}</td></tr>`;
+                if (state.debts[sup] > 0) debtSupplierSelect.innerHTML += `<option value="${sup}">${sup} (${formatCurrency(state.debts[sup])})</option>`;
+            }
+            document.querySelectorAll('.btn-view-sup-statement').forEach(btn => btn.addEventListener('click', (e) => { selectedSupplierForStatement = e.target.getAttribute('data-sup'); openSupplierStatement(selectedSupplierForStatement); }));
+
+            const advTbody = document.getElementById('advances-tbody'); const empList = document.getElementById('employees-list');
+            advTbody.innerHTML = ''; empList.innerHTML = '';
+            for (let emp in state.employees) {
+                empList.innerHTML += `<option value="${emp}">`;
+                if (state.employees[emp] > 0) {
+                    advTbody.innerHTML += `<tr><td><button class="btn-link btn-view-emp-statement" data-emp="${emp}"><i class="fas fa-user-circle"></i> ${emp}</button></td>
+                        <td class="text-danger font-bold">${formatCurrency(state.employees[emp])}</td>
+                        <td class="no-print"><button class="btn-small btn-success btn-zero-emp" data-emp="${emp}"><i class="fas fa-check-double"></i> تصفير</button></td></tr>`;
+                }
+            }
+            document.querySelectorAll('.btn-zero-emp').forEach(btn => btn.addEventListener('click', async (e) => {
+                const empName = e.target.getAttribute('data-emp');
+                if(confirm(`تصفير سلف: ${empName}؟`)) { state.employees[empName] = 0; await supabaseClient.from('employees').upsert([{ employee_name: empName, amount: 0 }]); updateDailyUI(); if(selectedEmployeeForStatement === empName) generateEmployeeStatement(); }
+            }));
+            document.querySelectorAll('.btn-view-emp-statement').forEach(btn => btn.addEventListener('click', (e) => { selectedEmployeeForStatement = e.target.getAttribute('data-emp'); openEmployeeStatement(selectedEmployeeForStatement); }));
+        }
+
+        function openEmployeeStatement(empName) { document.getElementById('statement-emp-name').textContent = empName; document.getElementById('emp-statement-container').style.display = 'block'; document.getElementById('emp-statement-container').scrollIntoView({ behavior: 'smooth' }); generateEmployeeStatement(); }
+        function generateEmployeeStatement() {
+            if(!selectedEmployeeForStatement) return;
+            const dateFrom = document.getElementById('emp_date_from').value; const dateTo = document.getElementById('emp_date_to').value;
+            const tbody = document.getElementById('emp-statement-tbody'); const totalEl = document.getElementById('emp-statement-total');
+            tbody.innerHTML = ''; let totalAmount = 0;
+            state.expenses.filter(ex => ex.supplier === selectedEmployeeForStatement && ex.date >= dateFrom && ex.date <= dateTo).sort((a,b) => a.date.localeCompare(b.date)).forEach(ex => {
+                totalAmount += Number(ex.amount);
+                tbody.innerHTML += `<tr><td>${ex.date}</td><td>${ex.account}</td><td>${ex.source === 'cashier' ? 'الكاشير' : 'الإدارة'}</td><td class="text-danger">${formatCurrency(ex.amount)}</td>
+                <td class="no-print"><button class="btn-small btn-danger-outline" onclick="deleteExpense(${ex.id})"><i class="fas fa-trash"></i></button></td></tr>`;
+            });
+            totalEl.textContent = formatCurrency(totalAmount);
+        }
+        document.getElementById('btn-filter-emp-statement').addEventListener('click', generateEmployeeStatement);
+        document.getElementById('btn-close-statement').addEventListener('click', () => document.getElementById('emp-statement-container').style.display = 'none');
+
+        function openSupplierStatement(supName) { document.getElementById('statement-supplier-name').textContent = supName; document.getElementById('supplier-statement-container').style.display = 'block'; document.getElementById('supplier-statement-container').scrollIntoView({ behavior: 'smooth' }); generateSupplierStatement(); }
+        function generateSupplierStatement() {
+            if(!selectedSupplierForStatement) return;
+            const dateFrom = document.getElementById('sup_date_from').value; const dateTo = document.getElementById('sup_date_to').value;
+            const tbody = document.getElementById('sup-statement-tbody'); const totalEl = document.getElementById('sup-statement-total');
+            tbody.innerHTML = ''; let netBalance = 0; let moves = [];
+            state.purchasesHistory.filter(p => p.supplier === selectedSupplierForStatement && p.date >= dateFrom && p.date <= dateTo).forEach(p => moves.push({ date: p.date, type: 'فاتورة شراء بالآجل', details: 'إضافة دين', amount: p.amount, isIncrease: true }));
+            state.expenses.filter(ex => ex.account === 'تسديد ديون' && ex.supplier === `تسديد للمجهز: ${selectedSupplierForStatement}` && ex.date >= dateFrom && ex.date <= dateTo).forEach(ex => moves.push({ date: ex.date, type: 'دفعة تسديد', details: ex.source === 'cashier' ? 'صندوق الكاشير' : 'الإدارة', amount: ex.amount, isIncrease: false }));
+            moves.sort((a,b) => a.date.localeCompare(b.date)).forEach(m => {
+                m.amount = Number(m.amount); if(m.isIncrease) netBalance += m.amount; else netBalance -= m.amount;
+                tbody.innerHTML += `<tr><td>${m.date}</td><td><span class="${m.isIncrease ? 'badge-minus' : 'badge-plus'}">${m.type}</span></td><td>${m.details}</td><td class="${m.isIncrease ? 'text-danger' : 'text-success'}">${m.isIncrease ? '+' : '-'}${formatCurrency(m.amount)}</td></tr>`;
+            });
+            totalEl.textContent = formatCurrency(netBalance); totalEl.className = netBalance > 0 ? 'text-danger' : 'text-success';
+        }
+        document.getElementById('btn-filter-sup-statement').addEventListener('click', generateSupplierStatement);
+        document.getElementById('btn-close-supplier-statement').addEventListener('click', () => document.getElementById('supplier-statement-container').style.display = 'none');
+
+        ['global-date', 'sales_date', 'sales_total', 'sales_toters', 'sales_talabaty', 'sales_baly', 'sales_epay', 'sales_return', 'sales_canceled', 'sales_delivery'].forEach(id => {
+            document.getElementById(id).addEventListener('input', (e) => {
+                if(id === 'global-date') ['sales_date', 'exp_date', 'exp_filter_date', 'adv_date', 'pur_date', 'debt_date'].forEach(d => document.getElementById(d).value = e.target.value);
+                if(id === 'sales_date') document.getElementById('exp_filter_date').value = e.target.value; updateDailyUI();
+            });
+        });
+
+        document.getElementById('sales-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const record = { date: document.getElementById('sales_date').value, total: parseFloat(document.getElementById('sales_total').value)||0, toters: parseFloat(document.getElementById('sales_toters').value)||0, talabaty: parseFloat(document.getElementById('sales_talabaty').value)||0, baly: parseFloat(document.getElementById('sales_baly').value)||0, epay: parseFloat(document.getElementById('sales_epay').value)||0, returns: parseFloat(document.getElementById('sales_return').value)||0, canceled: parseFloat(document.getElementById('sales_canceled').value)||0, delivery: parseFloat(document.getElementById('sales_delivery').value)||0 };
+            const { data } = await supabaseClient.from('sales').insert([record]).select(); if(data) record.id = data[0].id; state.salesRecords.push(record);
+            alert('تم الترحيل بنجاح.'); e.target.reset(); document.getElementById('sales_date').value = document.getElementById('global-date').value; updateDailyUI();
+        });
+
+        document.getElementById('expense-form').addEventListener('submit', async (e) => {
+            e.preventDefault(); const accountName = document.getElementById('exp_account').value.trim();
+            if(accountName && !state.categories.includes(accountName)) { state.categories.push(accountName); updateCategoriesList(); await supabaseClient.from('categories').insert([{ name: accountName }]); }
+            const record = { date: document.getElementById('exp_date').value, source: document.getElementById('exp_source').value, account: accountName, amount: parseFloat(document.getElementById('exp_amount').value), supplier: document.getElementById('exp_supplier').value || '---' };
+            const { data } = await supabaseClient.from('expenses').insert([record]).select(); if(data) record.id = data[0].id; state.expenses.push(record);
+            e.target.reset(); document.getElementById('exp_date').value = document.getElementById('global-date').value; updateDailyUI(); 
+        });
+
+        document.getElementById('advance-form').addEventListener('submit', async (e) => {
+            e.preventDefault(); const empName = document.getElementById('adv_employee').value.trim(); const amt = parseFloat(document.getElementById('adv_amount').value);
+            if(!empName || amt <= 0) return; state.employees[empName] = (state.employees[empName] || 0) + amt;
+            const record = { date: document.getElementById('adv_date').value, source: document.getElementById('adv_source').value, account: 'سحب من الراتب', amount: amt, supplier: empName };
+            const { data } = await supabaseClient.from('expenses').insert([record]).select(); if(data) record.id = data[0].id; state.expenses.push(record);
+            await supabaseClient.from('employees').upsert([{ employee_name: empName, amount: state.employees[empName] }]);
+            e.target.reset(); document.getElementById('adv_date').value = document.getElementById('global-date').value; updateDailyUI(); if(selectedEmployeeForStatement === empName) generateEmployeeStatement();
+        });
+
+        document.getElementById('purchase-form').addEventListener('submit', async (e) => {
+            e.preventDefault(); const sup = document.getElementById('pur_supplier').value.trim(); const amt = parseFloat(document.getElementById('pur_total').value); const date = document.getElementById('pur_date').value;
+            state.debts[sup] = (state.debts[sup] || 0) + amt; const record = { date, supplier: sup, amount: amt };
+            const { data } = await supabaseClient.from('purchases').insert([record]).select(); if(data) record.id = data[0].id; state.purchasesHistory.push(record);
+            await supabaseClient.from('debts').upsert([{ supplier_name: sup, amount: state.debts[sup] }]);
+            e.target.reset(); document.getElementById('pur_date').value = document.getElementById('global-date').value; updateDailyUI(); if(selectedSupplierForStatement === sup) generateSupplierStatement();
+        });
+
+        document.getElementById('debt-form').addEventListener('submit', async (e) => {
+            e.preventDefault(); const sup = document.getElementById('debt_supplier').value; const amt = parseFloat(document.getElementById('debt_amount').value);
+            if (!sup || amt > state.debts[sup]) return alert('خطأ في المجهز أو المبلغ أكبر من الدين!');
+            state.debts[sup] -= amt; const record = { date: document.getElementById('debt_date').value, source: document.getElementById('debt_source').value, account: 'تسديد ديون', amount: amt, supplier: `تسديد للمجهز: ${sup}` };
+            const { data } = await supabaseClient.from('expenses').insert([record]).select(); if(data) record.id = data[0].id; state.expenses.push(record);
+            await supabaseClient.from('debts').upsert([{ supplier_name: sup, amount: state.debts[sup] }]);
+            e.target.reset(); document.getElementById('debt_date').value = document.getElementById('global-date').value; updateDailyUI(); if(selectedSupplierForStatement === sup) generateSupplierStatement();
+        });
+
+        function generateReports() {
+            const dateFrom = document.getElementById('rep_date_from').value; const dateTo = document.getElementById('rep_date_to').value;
+            const accFilter = document.getElementById('rep_filter_account').value; const srcFilter = document.getElementById('rep_filter_source').value;
+            let rData = { total:0, toters:0, talabaty:0, baly:0, epay:0, returns:0, canceled:0, delivery:0 };
+            state.salesRecords.filter(s => s.date >= dateFrom && s.date <= dateTo).forEach(s => {
+                rData.total += Number(s.total); rData.toters += Number(s.toters); rData.talabaty += Number(s.talabaty); rData.baly += Number(s.baly); rData.epay += Number(s.epay); rData.returns += Number(s.returns); rData.canceled += Number(s.canceled); rData.delivery += Number(s.delivery);
+            });
+            document.getElementById('rep_sales_total').textContent = formatCurrency(rData.total); document.getElementById('rep_sales_toters').textContent = formatCurrency(rData.toters); document.getElementById('rep_sales_talabaty').textContent = formatCurrency(rData.talabaty); document.getElementById('rep_sales_baly').textContent = formatCurrency(rData.baly); document.getElementById('rep_sales_epay').textContent = formatCurrency(rData.epay); document.getElementById('rep_sales_return').textContent = formatCurrency(rData.returns); document.getElementById('rep_sales_canceled').textContent = formatCurrency(rData.canceled); document.getElementById('rep_sales_delivery').textContent = formatCurrency(rData.delivery);
+            const netCash = rData.total - (rData.toters + rData.talabaty + rData.baly + rData.epay + rData.returns + rData.canceled + rData.delivery);
+            document.getElementById('rep_sales_net_cash').textContent = formatCurrency(netCash); document.getElementById('rep_sales_cash_epay').textContent = formatCurrency(netCash + rData.epay);
+            const repTbody = document.getElementById('rep_expenses_tbody'); repTbody.innerHTML = ''; let visibleExpSum = 0;
+            state.expenses.filter(ex => (ex.date >= dateFrom && ex.date <= dateTo) && (accFilter === 'all' || ex.account === accFilter) && (srcFilter === 'all' || ex.source === srcFilter)).sort((a,b) => a.date.localeCompare(b.date)).forEach(ex => {
+                visibleExpSum += Number(ex.amount); repTbody.innerHTML += `<tr><td>${ex.date}</td><td>${ex.account}</td><td>${ex.supplier}</td><td><span class="badge-plus" style="background:#f1f5f9;color:#475569;">${ex.source === 'cashier' ? 'الكاشير' : 'الإدارة'}</span></td><td class="text-danger font-bold">${formatCurrency(ex.amount)}</td></tr>`;
+            });
+            document.getElementById('rep_expenses_sum').textContent = formatCurrency(visibleExpSum);
+        }
+        document.getElementById('btn-generate-reports').addEventListener('click', generateReports); document.getElementById('rep_filter_account').addEventListener('change', generateReports); document.getElementById('rep_filter_source').addEventListener('change', generateReports);
+
+        window.exportTableToCSV = function(tableId, filename) {
+            let csv = []; let csvContent = "\uFEFF"; let rows = document.getElementById(tableId).querySelectorAll("tr");
+            for (let i = 0; i < rows.length; i++) {
+                let row = [], cols = rows[i].querySelectorAll("td:not(.no-print), th:not(.no-print)");
+                for (let j = 0; j < cols.length; j++) row.push('"' + cols[j].innerText.replace(/"/g, '""').trim() + '"'); csv.push(row.join(","));
+            }
+            csvContent += csv.join("\n"); let blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" }); let link = document.createElement("a");
+            if (link.download !== undefined) { let url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", filename); link.style.visibility = 'hidden'; document.body.appendChild(link); link.click(); document.body.removeChild(link); }
+        };
+
+        window.deleteExpense = async function(id) {
+            if(currentUser.role !== 'admin') return alert("صلاحيات المدير فقط!");
+            if(!confirm("⚠️ تأكيد الحذف نهائياً؟")) return;
+            const expIndex = state.expenses.findIndex(e => e.id === id); if(expIndex === -1) return alert("يرجى تحديث الصفحة والمحاولة.");
+            const ex = state.expenses[expIndex];
+            try {
+                await supabaseClient.from('expenses').delete().eq('id', id);
+                if (ex.account === 'سحب من الراتب' && state.employees[ex.supplier] !== undefined) {
+                    state.employees[ex.supplier] -= Number(ex.amount); await supabaseClient.from('employees').upsert([{ employee_name: ex.supplier, amount: state.employees[ex.supplier] }]);
+                } else if (ex.account === 'تسديد ديون') {
+                    const supName = ex.supplier.replace('تسديد للمجهز: ', '');
+                    if (state.debts[supName] !== undefined) { state.debts[supName] += Number(ex.amount); await supabaseClient.from('debts').upsert([{ supplier_name: supName, amount: state.debts[supName] }]); }
+                }
+                state.expenses.splice(expIndex, 1); updateDailyUI(); if(selectedEmployeeForStatement) generateEmployeeStatement();
+            } catch (error) { alert("حدث خطأ أثناء الحذف."); }
+        };
     </script>
 </body>
 </html>
