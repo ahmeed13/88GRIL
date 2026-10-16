@@ -715,7 +715,23 @@
 
             <!-- ================= الإعدادات ================= -->
             <section id="settings" class="page">
-                <h2 class="page-title"><i class="fas fa-cog text-primary"></i> إعدادات النظام وإدارة المستخدمين</h2>
+                <h2 class="page-title"><i class="fas fa-cog text-primary"></i> إعدادات النظام وإدارة المستخدمين (Super Admin)</h2>
+                
+                <!-- تصفير البيانات للفترة المحددة -->
+                <div class="form-container" style="border-top: 4px solid var(--danger); background: #fff5f5; margin-bottom: 30px;">
+                    <h3 style="color: var(--danger);"><i class="fas fa-trash-restore"></i> تصفير بيانات فترة زمنية معينة (حذف نهائي)</h3>
+                    <p style="font-size: 0.9rem; color: var(--secondary); margin-bottom: 15px;">ملاحظة: تتيح هذه الخاصية للسوبر أدمن فقط إمكانية تصفير المبيعات، الصرفيات والمشتريات لفترة زمنيةحددة مع الحاجة لإدخال كلمة المرور للتأكيد.</p>
+                    <form id="reset-data-form">
+                        <div class="grid-3">
+                            <div class="form-group"><label>من تاريخ</label><input type="date" id="reset_from_date" required></div>
+                            <div class="form-group"><label>إلى تاريخ</label><input type="date" id="reset_to_date" required></div>
+                            <div class="form-group" style="display: flex; align-items: flex-end;">
+                                <button type="submit" class="btn-primary" style="background: var(--danger); margin: 0;"><i class="fas fa-exclamation-triangle"></i> تصفير البيانات للفترة</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
                 <div class="grid-2">
                     <div class="form-container">
                         <h3><i class="fas fa-user-plus text-primary"></i> إضافة مستخدم جديد</h3>
@@ -726,7 +742,7 @@
                                 <label>نوع الصلاحية</label>
                                 <select id="new_role">
                                     <option value="user">مستخدم عادي (كاشير)</option>
-                                    <option value="admin">مدير (صلاحيات كاملة)</option>
+                                    <option value="admin">مدير</option>
                                 </select>
                             </div>
                             <button type="submit" class="btn-primary"><i class="fas fa-save"></i> حفظ المستخدم</button>
@@ -792,7 +808,12 @@
 
         const todayStr = getTodayStr();
         document.getElementById('global-date').value = todayStr;
-        ['sales_date', 'exp_date', 'exp_filter_date', 'adv_date', 'emp_date_from', 'emp_date_to', 'pur_date', 'debt_date', 'sup_date_from', 'sup_date_to', 'rep_date_from', 'rep_date_to'].forEach(id => document.getElementById(id).value = todayStr);
+        ['sales_date', 'exp_date', 'exp_filter_date', 'adv_date', 'emp_date_from', 'emp_date_to', 'pur_date', 'debt_date', 'sup_date_from', 'sup_date_to', 'rep_date_from', 'rep_date_to', 'reset_from_date', 'reset_to_date'].forEach(id => {
+            const el = document.getElementById(id); if (el) el.value = todayStr;
+        });
+
+        // التحقق من صلاحية السوبر أدمن (اليوزر admin فقط)
+        const isSuperAdmin = () => currentUser && currentUser.username === 'admin';
 
         function applyUserRoleAndShowApp() {
             document.getElementById('login-screen').style.display = 'none';
@@ -801,12 +822,17 @@
             
             if (currentUser.role === 'admin') {
                 document.getElementById('reports-link').style.display = 'block';
+            } else {
+                document.getElementById('reports-link').style.display = 'none';
+            }
+
+            // عرض زر شاشة الإعدادات والتعديلات فقط للسوبر أدمن (admin)
+            if (isSuperAdmin()) {
                 document.getElementById('settings-link').style.display = 'block';
                 loadUsers();
             } else {
-                document.getElementById('reports-link').style.display = 'none';
                 document.getElementById('settings-link').style.display = 'none';
-                if (document.getElementById('reports').classList.contains('active') || document.getElementById('settings').classList.contains('active')) {
+                if (document.getElementById('settings').classList.contains('active')) {
                     document.querySelector('[data-target="dashboard"]').click();
                 }
             }
@@ -855,14 +881,14 @@
         });
 
         async function loadUsers() {
-            if (currentUser.role !== 'admin') return;
+            if (!isSuperAdmin()) return;
             const { data } = await supabaseClient.from('users').select('*');
             const tbody = document.getElementById('users-tbody');
             tbody.innerHTML = '';
             if(data) {
                 data.forEach(u => {
                     tbody.innerHTML += `<tr>
-                        <td>${u.username}</td><td>${u.role === 'admin' ? '<span class="badge-plus" style="background:#e0e7ff; color:#3730a3;">مدير</span>' : 'مستخدم'}</td>
+                        <td>${u.username}</td><td>${u.username === 'admin' ? '<span class="badge-plus" style="background:#e0e7ff; color:#3730a3;">سوبر أدمن</span>' : (u.role === 'admin' ? 'مدير' : 'مستخدم')}</td>
                         <td>
                             <button class="btn-small" style="background: var(--warning); color: #000; margin-left: 5px;" onclick="editUserPassword(${u.id}, '${u.username}')"><i class="fas fa-edit"></i> تعديل</button>
                             ${u.username !== 'admin' ? `<button class="btn-small btn-danger-outline" onclick="deleteUser(${u.id})"><i class="fas fa-trash"></i></button>` : ''}
@@ -873,6 +899,7 @@
         }
 
         window.editUserPassword = async function(id, username) {
+            if (!isSuperAdmin()) return alert("صلاحية السوبر أدمن (admin) فقط!");
             const newPassword = prompt(`أدخل كلمة المرور الجديدة للمستخدم: ${username}`);
             if (newPassword && newPassword.trim() !== '') {
                 document.getElementById('loader').style.display = 'flex';
@@ -896,6 +923,7 @@
 
         document.getElementById('add-user-form').addEventListener('submit', async (e) => {
             e.preventDefault();
+            if (!isSuperAdmin()) return alert("صلاحية السوبر أدمن (admin) فقط!");
             const username = document.getElementById('new_username').value;
             const password = document.getElementById('new_password').value;
             const role = document.getElementById('new_role').value;
@@ -904,8 +932,48 @@
         });
 
         window.deleteUser = async function(id) {
+            if (!isSuperAdmin()) return alert("صلاحية السوبر أدمن (admin) فقط!");
             if(confirm("تأكيد الحذف؟")) { await supabaseClient.from('users').delete().eq('id', id); loadUsers(); }
         }
+
+        // ================= تصفير البيانات للفترة مع طلب كلمة المرور =================
+        document.getElementById('reset-data-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!isSuperAdmin()) return alert("عذراً، هذه الصلاحية محصورة بحساب السوبر أدمن (admin) فقط!");
+            
+            const fromDate = document.getElementById('reset_from_date').value;
+            const toDate = document.getElementById('reset_to_date').value;
+
+            if (fromDate > toDate) return alert("تاريخ البداية يجب أن يكون قبل أو يساوي تاريخ النهاية!");
+
+            const confirmPass = prompt(`⚠️ تحذير شديد الخطورة!\nسيتم حذف جميع سجلات (المبيعات، الصرفيات، والمشتريات) للفترة من ${fromDate} إلى ${toDate} بشكل نهائي.\n\nتأكيداً للعملية، يرجى إدخال كلمة المرور لحساب السوبر أدمن (admin):`);
+
+            if (!confirmPass) return;
+
+            document.getElementById('loader').style.display = 'flex';
+            try {
+                // التأكد من كلمة المرور للسوبر أدمن
+                const { data, error } = await supabaseClient.from('users').select('*').eq('username', 'admin').eq('password', confirmPass.trim());
+                if (!data || data.length === 0) {
+                    document.getElementById('loader').style.display = 'none';
+                    return alert("❌ كلمة المرور غير صحيحة! تم إلغاء عملية التصفير.");
+                }
+
+                // تنفيذ عملية التصفير في قاعدة البيانات للفترة المحددة
+                await Promise.all([
+                    supabaseClient.from('sales').delete().gte('date', fromDate).lte('date', toDate),
+                    supabaseClient.from('expenses').delete().gte('date', fromDate).lte('date', toDate),
+                    supabaseClient.from('purchases').delete().gte('date', fromDate).lte('date', toDate)
+                ]);
+
+                alert(`✅ تم تصفير البيانات بنجاح للفترة من ${fromDate} إلى ${toDate}`);
+                await fetchInitialData();
+            } catch (err) {
+                alert("حدث خطأ أثناء تصفير البيانات.");
+            } finally {
+                document.getElementById('loader').style.display = 'none';
+            }
+        });
 
         async function fetchInitialData() {
             try {
