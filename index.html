@@ -399,10 +399,11 @@
                         </div>
 
                         <span class="section-label"><i class="fas fa-minus-circle"></i> مستقطعات أخرى من المبيعات (تُخصم من النقد)</span>
-                        <div class="grid-3">
+                        <div class="grid-4">
                             <div class="form-group"><label>مرتجع مبيعات</label><input type="number" id="sales_return" value="0"></div>
                             <div class="form-group"><label>إلغاء أوردر</label><input type="number" id="sales_canceled" value="0"></div>
                             <div class="form-group"><label>أجور توصيل</label><input type="number" id="sales_delivery" value="0"></div>
+                            <div class="form-group"><label>خصم العروض</label><input type="number" id="sales_discount" value="0"></div>
                         </div>
                         
                         <div class="result-box">
@@ -663,6 +664,7 @@
                     <div class="card card-danger" style="padding: 15px;"><h3>مرتجعات المبيعات</h3><p class="amount text-danger" id="rep_sales_return" style="font-size: 1.5rem;">0 د.ع</p></div>
                     <div class="card card-danger" style="padding: 15px;"><h3>إلغاء أوردر</h3><p class="amount text-danger" id="rep_sales_canceled" style="font-size: 1.5rem;">0 د.ع</p></div>
                     <div class="card card-danger" style="padding: 15px;"><h3>أجور التوصيل</h3><p class="amount text-danger" id="rep_sales_delivery" style="font-size: 1.5rem;">0 د.ع</p></div>
+                    <div class="card card-danger" style="padding: 15px;"><h3>خصم العروض</h3><p class="amount text-danger" id="rep_sales_discount" style="font-size: 1.5rem;">0 د.ع</p></div>
                 </div>
                 
                 <div class="grid-2" style="margin-bottom: 30px;">
@@ -812,7 +814,6 @@
             const el = document.getElementById(id); if (el) el.value = todayStr;
         });
 
-        // التحقق من صلاحية السوبر أدمن (اليوزر admin فقط)
         const isSuperAdmin = () => currentUser && currentUser.username === 'admin';
 
         function applyUserRoleAndShowApp() {
@@ -826,7 +827,6 @@
                 document.getElementById('reports-link').style.display = 'none';
             }
 
-            // عرض زر شاشة الإعدادات والتعديلات فقط للسوبر أدمن (admin)
             if (isSuperAdmin()) {
                 document.getElementById('settings-link').style.display = 'block';
                 loadUsers();
@@ -936,7 +936,6 @@
             if(confirm("تأكيد الحذف؟")) { await supabaseClient.from('users').delete().eq('id', id); loadUsers(); }
         }
 
-        // ================= تصفير البيانات للفترة مع طلب كلمة المرور =================
         document.getElementById('reset-data-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!isSuperAdmin()) return alert("عذراً، هذه الصلاحية محصورة بحساب السوبر أدمن (admin) فقط!");
@@ -952,14 +951,12 @@
 
             document.getElementById('loader').style.display = 'flex';
             try {
-                // التأكد من كلمة المرور للسوبر أدمن
                 const { data, error } = await supabaseClient.from('users').select('*').eq('username', 'admin').eq('password', confirmPass.trim());
                 if (!data || data.length === 0) {
                     document.getElementById('loader').style.display = 'none';
                     return alert("❌ كلمة المرور غير صحيحة! تم إلغاء عملية التصفير.");
                 }
 
-                // تنفيذ عملية التصفير في قاعدة البيانات للفترة المحددة
                 await Promise.all([
                     supabaseClient.from('sales').delete().gte('date', fromDate).lte('date', toDate),
                     supabaseClient.from('expenses').delete().gte('date', fromDate).lte('date', toDate),
@@ -1012,7 +1009,10 @@
             const selectedSalesDate = document.getElementById('sales_date').value;
             const sTotal = parseFloat(document.getElementById('sales_total').value) || 0;
             const appsTotal = ['sales_toters', 'sales_talabaty', 'sales_baly', 'sales_epay'].reduce((sum, id) => sum + (parseFloat(document.getElementById(id).value) || 0), 0);
-            const deductions = ['sales_return', 'sales_canceled', 'sales_delivery'].reduce((sum, id) => sum + (parseFloat(document.getElementById(id).value) || 0), 0);
+            
+            // إضافة خصم العروض لقائمة المستقطعات
+            const deductions = ['sales_return', 'sales_canceled', 'sales_delivery', 'sales_discount'].reduce((sum, id) => sum + (parseFloat(document.getElementById(id).value) || 0), 0);
+            
             const selectedDayCashierExp = state.expenses.filter(ex => ex.date === selectedSalesDate && ex.source === 'cashier').reduce((sum, ex) => sum + Number(ex.amount), 0);
             const selectedDayAllExp = state.expenses.filter(ex => ex.date === selectedSalesDate).reduce((sum, ex) => sum + Number(ex.amount), 0);
             const isFormEmpty = (sTotal === 0 && appsTotal === 0 && deductions === 0);
@@ -1119,14 +1119,14 @@
         document.getElementById('btn-filter-sup-statement').addEventListener('click', generateSupplierStatement);
         document.getElementById('btn-close-supplier-statement').addEventListener('click', () => document.getElementById('supplier-statement-container').style.display = 'none');
 
-        ['global-date', 'sales_date', 'sales_total', 'sales_toters', 'sales_talabaty', 'sales_baly', 'sales_epay', 'sales_return', 'sales_canceled', 'sales_delivery'].forEach(id => {
+        // إضافة حقل الخصم لقائمة الأحداث
+        ['global-date', 'sales_date', 'sales_total', 'sales_toters', 'sales_talabaty', 'sales_baly', 'sales_epay', 'sales_return', 'sales_canceled', 'sales_delivery', 'sales_discount'].forEach(id => {
             document.getElementById(id).addEventListener('input', (e) => {
                 if(id === 'global-date') ['sales_date', 'exp_date', 'exp_filter_date', 'adv_date', 'pur_date', 'debt_date'].forEach(d => document.getElementById(d).value = e.target.value);
                 if(id === 'sales_date') document.getElementById('exp_filter_date').value = e.target.value; updateDailyUI();
             });
         });
 
-        // ترحيل المبيعات أو تحديثها بالكامل
         document.getElementById('sales-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const date = document.getElementById('sales_date').value;
@@ -1138,11 +1138,12 @@
             const returns = parseFloat(document.getElementById('sales_return').value)||0;
             const canceled = parseFloat(document.getElementById('sales_canceled').value)||0;
             const delivery = parseFloat(document.getElementById('sales_delivery').value)||0;
+            const discount = parseFloat(document.getElementById('sales_discount').value)||0; // حقل الخصم
 
             const cashierExp = state.expenses.filter(ex => ex.date === date && ex.source === 'cashier').reduce((sum, ex) => sum + Number(ex.amount), 0);
-            const net_cash = total - (toters + talabaty + baly + epay + returns + canceled + delivery + cashierExp);
+            const net_cash = total - (toters + talabaty + baly + epay + returns + canceled + delivery + discount + cashierExp); // تضمين الخصم
 
-            const record = { date, total, toters, talabaty, baly, epay, returns, canceled, delivery, net_cash };
+            const record = { date, total, toters, talabaty, baly, epay, returns, canceled, delivery, discount, net_cash };
             
             const existingIdx = state.salesRecords.findIndex(s => s.date === date);
             if (existingIdx !== -1) {
@@ -1193,23 +1194,22 @@
             e.target.reset(); document.getElementById('debt_date').value = document.getElementById('global-date').value; updateDailyUI(); if(selectedSupplierForStatement === sup) generateSupplierStatement();
         });
 
-        // دالة التقرير الدقيقة والمطابقة تماماً مع الحساب المباشر للواجهة والصرفيات
         function generateReports() {
             const dateFrom = document.getElementById('rep_date_from').value; const dateTo = document.getElementById('rep_date_to').value;
             const accFilter = document.getElementById('rep_filter_account').value; const srcFilter = document.getElementById('rep_filter_source').value;
-            let rData = { total:0, toters:0, talabaty:0, baly:0, epay:0, returns:0, canceled:0, delivery:0, netCash:0 };
+            // إضافة الخصم إلى متغيرات التقرير
+            let rData = { total:0, toters:0, talabaty:0, baly:0, epay:0, returns:0, canceled:0, delivery:0, discount:0, netCash:0 };
 
             const selectedSalesDate = document.getElementById('sales_date').value;
             const formTotal = parseFloat(document.getElementById('sales_total').value) || 0;
 
-            // حصر كل التواريخ الفريدة للفترة المحددة
             let datesSet = new Set();
             state.salesRecords.forEach(s => { if(s.date >= dateFrom && s.date <= dateTo) datesSet.add(s.date); });
             if (selectedSalesDate >= dateFrom && selectedSalesDate <= dateTo) datesSet.add(selectedSalesDate);
 
             datesSet.forEach(d => {
                 let s = state.salesRecords.find(item => item.date === d);
-                let total = 0, toters = 0, talabaty = 0, baly = 0, epay = 0, returns = 0, canceled = 0, delivery = 0;
+                let total = 0, toters = 0, talabaty = 0, baly = 0, epay = 0, returns = 0, canceled = 0, delivery = 0, discount = 0;
 
                 if (d === selectedSalesDate && formTotal > 0) {
                     total = formTotal;
@@ -1220,6 +1220,7 @@
                     returns = parseFloat(document.getElementById('sales_return').value) || 0;
                     canceled = parseFloat(document.getElementById('sales_canceled').value) || 0;
                     delivery = parseFloat(document.getElementById('sales_delivery').value) || 0;
+                    discount = parseFloat(document.getElementById('sales_discount').value) || 0;
                 } else if (s) {
                     total = Number(s.total || 0);
                     toters = Number(s.toters || 0);
@@ -1229,10 +1230,12 @@
                     returns = Number(s.returns || s.return_amount || 0);
                     canceled = Number(s.canceled || 0);
                     delivery = Number(s.delivery || 0);
+                    discount = Number(s.discount || 0); // جلب الخصم من قاعدة البيانات
                 }
 
                 const dayCashierExp = state.expenses.filter(ex => ex.date === d && ex.source === 'cashier').reduce((sum, ex) => sum + Number(ex.amount), 0);
-                const dayNetCash = total > 0 ? (total - (toters + talabaty + baly + epay + returns + canceled + delivery + dayCashierExp)) : 0;
+                // تضمين الخصم في معادلة الصافي
+                const dayNetCash = total > 0 ? (total - (toters + talabaty + baly + epay + returns + canceled + delivery + discount + dayCashierExp)) : 0;
 
                 rData.total += total;
                 rData.toters += toters;
@@ -1242,6 +1245,7 @@
                 rData.returns += returns;
                 rData.canceled += canceled;
                 rData.delivery += delivery;
+                rData.discount += discount; // جمع الخصومات
                 rData.netCash += dayNetCash;
             });
 
@@ -1253,6 +1257,7 @@
             document.getElementById('rep_sales_return').textContent = formatCurrency(rData.returns); 
             document.getElementById('rep_sales_canceled').textContent = formatCurrency(rData.canceled); 
             document.getElementById('rep_sales_delivery').textContent = formatCurrency(rData.delivery);
+            document.getElementById('rep_sales_discount').textContent = formatCurrency(rData.discount); // عرض إجمالي الخصم
             
             document.getElementById('rep_sales_net_cash').textContent = formatCurrency(rData.netCash); 
             document.getElementById('rep_sales_cash_epay').textContent = formatCurrency(rData.netCash + rData.epay);
@@ -1370,7 +1375,6 @@
                         date: newDate, source: newSource, account: newAccount, amount: newAmount, supplier: newSupplier
                     }).eq('id', id);
 
-                    // إرجاع الأرصدة القديمة
                     if (oldEx.account === 'سحب من الراتب' && state.employees[oldEx.supplier] !== undefined) {
                         state.employees[oldEx.supplier] -= Number(oldEx.amount);
                     } else if (oldEx.account === 'تسديد ديون') {
@@ -1378,10 +1382,8 @@
                         if (state.debts[oldSup] !== undefined) state.debts[oldSup] += Number(oldEx.amount);
                     }
 
-                    // تحديث القيم في الحالة المحلية
                     state.expenses[expIndex] = { id, date: newDate, source: newSource, account: newAccount, amount: newAmount, supplier: newSupplier };
 
-                    // تطبيق الأرصدة الجديدة
                     if (newAccount === 'سحب من الراتب') {
                         state.employees[newSupplier] = (state.employees[newSupplier] || 0) + newAmount;
                         await supabaseClient.from('employees').upsert([{ employee_name: newSupplier, amount: state.employees[newSupplier] }]);
@@ -1391,7 +1393,6 @@
                         await supabaseClient.from('debts').upsert([{ supplier_name: supName, amount: state.debts[supName] }]);
                     }
 
-                    // حفظ الموظف/المجهز القديم إذا تغير الاسم
                     if (oldEx.account === 'سحب من الراتب' && oldEx.supplier !== newSupplier && state.employees[oldEx.supplier] !== undefined) {
                         await supabaseClient.from('employees').upsert([{ employee_name: oldEx.supplier, amount: state.employees[oldEx.supplier] }]);
                     }
@@ -1402,15 +1403,10 @@
                         }
                     }
 
-                    closeEditModal();
-                    updateDailyUI();
+                    closeEditModal(); updateDailyUI();
                     if (selectedEmployeeForStatement) generateEmployeeStatement();
                     if (selectedSupplierForStatement) generateSupplierStatement();
-                } catch (err) {
-                    alert('حدث خطأ أثناء تعديل الصرفية.');
-                } finally {
-                    document.getElementById('loader').style.display = 'none';
-                }
+                } catch (err) { alert('حدث خطأ أثناء تعديل الصرفية.'); } finally { document.getElementById('loader').style.display = 'none'; }
 
             } else if (type === 'purchase') {
                 const newSupplier = document.getElementById('edit_supplier').value.trim();
@@ -1424,31 +1420,21 @@
                         date: newDate, supplier: newSupplier, amount: newAmount
                     }).eq('id', id);
 
-                    // إرجاع الدين القديم
                     if (state.debts[oldP.supplier] !== undefined) {
                         state.debts[oldP.supplier] -= Number(oldP.amount);
                     }
 
-                    // تحديث الحالة المحلية
                     state.purchasesHistory[purIndex] = { id, date: newDate, supplier: newSupplier, amount: newAmount };
-
-                    // تطبيق الدين الجديد
                     state.debts[newSupplier] = (state.debts[newSupplier] || 0) + newAmount;
 
-                    // تحديث السجلات في قاعدة البيانات
                     await supabaseClient.from('debts').upsert([{ supplier_name: oldP.supplier, amount: state.debts[oldP.supplier] }]);
                     if (oldP.supplier !== newSupplier) {
                         await supabaseClient.from('debts').upsert([{ supplier_name: newSupplier, amount: state.debts[newSupplier] }]);
                     }
 
-                    closeEditModal();
-                    updateDailyUI();
+                    closeEditModal(); updateDailyUI();
                     if (selectedSupplierForStatement) generateSupplierStatement();
-                } catch (err) {
-                    alert('حدث خطأ أثناء تعديل الفاتورة.');
-                } finally {
-                    document.getElementById('loader').style.display = 'none';
-                }
+                } catch (err) { alert('حدث خطأ أثناء تعديل الفاتورة.'); } finally { document.getElementById('loader').style.display = 'none'; }
             }
         });
     </script>
