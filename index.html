@@ -23,7 +23,7 @@
             --primary-hover: #4338ca;
             --secondary: #64748b;     /* لون رمادي للنصوص الثانوية */
             --success: #10b981;       /* أخضر مريح */
-            --danger: #ef4444;        /* أحمر طففيف */
+            --danger: #ef4444;        /* أحمر طفيف */
             --warning: #f59e0b;       /* برتقالي/أصفر */
             --dark: #0f172a;          /* كحلي داكن جداً للقوائم */
             --background: #f1f5f9;    /* لون خلفية النظام */
@@ -249,14 +249,26 @@
 
         /* ================= تنسيقات الطباعة ================= */
         @media print {
+            html, body, #app-container, .main-content { 
+                height: auto !important; 
+                overflow: visible !important; 
+                display: block !important;
+                background: white !important; 
+                color: black !important;
+            }
             .sidebar, .topbar, .no-print { display: none !important; }
-            .main-content { overflow: visible !important; width: 100%; background: white; }
-            body { background: white; color: black; }
-            .page { padding: 0 !important; display: block !important; animation: none; }
+            .page { padding: 0 !important; display: block !important; animation: none !important; height: auto !important; overflow: visible !important; }
             .page:not(.active) { display: none !important; }
-            .card, .form-container, .table-container { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; margin-bottom: 20px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #ddd !important; padding: 8px !important; }
+            div[style*="overflow-x: auto"] { overflow: visible !important; }
+            .card, .form-container, .table-container { 
+                box-shadow: none !important; 
+                border: 1px solid #ccc !important; 
+                page-break-inside: avoid !important; 
+                break-inside: avoid !important; 
+                margin-bottom: 20px !important; 
+            }
+            table { width: 100% !important; border-collapse: collapse !important; }
+            th, td { border: 1px solid #ddd !important; padding: 8px !important; white-space: normal !important; word-break: break-word !important; }
         }
     </style>
 </head>
@@ -609,13 +621,14 @@
                     <div style="overflow-x: auto;">
                         <table>
                             <thead>
-                                <tr><th>التاريخ</th><th>نوع الحركة</th><th>التفاصيل / الصندوق</th><th>المبلغ</th></tr>
+                                <tr><th>التاريخ</th><th>نوع الحركة</th><th>التفاصيل / الصندوق</th><th>المبلغ</th><th class="no-print">إجراء</th></tr>
                             </thead>
                             <tbody id="sup-statement-tbody"></tbody>
                             <tfoot>
                                 <tr>
                                     <td colspan="3" style="text-align: left;">صافي الحركة للفترة المحددة:</td>
                                     <td id="sup-statement-total" style="font-size: 1.2rem; font-weight: 800;">0 د.ع</td>
+                                    <td class="no-print"></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -734,7 +747,33 @@
         </main>
     </div>
 
-    <!-- كود الجافاسكربت المعدل -->
+    <!-- نافذة تعديل السجلات المنبثقة (Edit Modal) -->
+    <div id="edit-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+        <div class="form-container" style="width: 90%; max-width: 500px; margin: 0; background: white; border-radius: var(--radius-lg); box-shadow: var(--shadow-md);">
+            <h3 id="modal-title" style="border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 20px;"><i class="fas fa-edit text-primary"></i> تعديل السجل</h3>
+            <form id="edit-item-form">
+                <input type="hidden" id="edit_type">
+                <input type="hidden" id="edit_id">
+                <div class="form-group"><label>التاريخ</label><input type="date" id="edit_date" required></div>
+                <div class="form-group" id="edit_source_group">
+                    <label>مصدر الدفع</label>
+                    <select id="edit_source">
+                        <option value="cashier">صندوق الكاشير</option>
+                        <option value="admin">الإدارة</option>
+                    </select>
+                </div>
+                <div class="form-group" id="edit_account_group"><label id="edit_account_label">التصنيف / البيان</label><input type="text" id="edit_account"></div>
+                <div class="form-group" id="edit_supplier_group"><label id="edit_supplier_label">الملاحظة / المستفيد / المجهز</label><input type="text" id="edit_supplier"></div>
+                <div class="form-group"><label>المبلغ (د.ع)</label><input type="number" id="edit_amount" required min="1" style="font-weight: bold; color: var(--danger);"></div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="submit" class="btn-primary" style="flex: 1;"><i class="fas fa-save"></i> حفظ التعديل</button>
+                    <button type="button" class="btn-small" style="background: var(--secondary); padding: 12px 20px;" onclick="closeEditModal()">إلغاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- كود الجافاسكربت -->
     <script>
         const supabaseUrl = 'https://ztulochyubbyudgcrodp.supabase.co'; 
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0dWxvY2h5dWJieXVkZ2Nyb2RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5OTUwNjEsImV4cCI6MjEwNzU3MTA2MX0.p78OLnHcUfBmB-PINuw0-xx4dRp-exf99CqRHxhn8QI'; 
@@ -743,10 +782,8 @@
         let state = { salesRecords: [], expenses: [], purchasesHistory: [], debts: {}, categories: [], employees: {} };
         let selectedEmployeeForStatement = ''; let selectedSupplierForStatement = ''; let currentUser = null;
         
-        // تعديل التنسيق ليكون باللغة الإنجليزية للأرقام
         const formatCurrency = (num) => new Intl.NumberFormat('en-US').format(num) + ' د.ع';
         
-        // تعديل جلب التاريخ ليعتمد على التوقيت المحلي بدلاً من توقيت جرينتش
         const getTodayStr = () => {
             const d = new Date();
             d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
@@ -817,7 +854,6 @@
             }
         });
 
-        // إضافة زر تعديل كلمة المرور بجانب كل مستخدم
         async function loadUsers() {
             if (currentUser.role !== 'admin') return;
             const { data } = await supabaseClient.from('users').select('*');
@@ -836,7 +872,6 @@
             }
         }
 
-        // دالة تغيير كلمة المرور لأي مستخدم
         window.editUserPassword = async function(id, username) {
             const newPassword = prompt(`أدخل كلمة المرور الجديدة للمستخدم: ${username}`);
             if (newPassword && newPassword.trim() !== '') {
@@ -847,7 +882,6 @@
                         alert('حدث خطأ أثناء التعديل.');
                     } else {
                         alert('تم تعديل كلمة المرور بنجاح.');
-                        // تحديث بيانات الجلسة إذا كان التعديل لنفس الحساب المسجل به حالياً
                         if (currentUser && currentUser.id === id) {
                             currentUser.password = newPassword.trim();
                             localStorage.setItem('restaurant_user', JSON.stringify(currentUser));
@@ -934,7 +968,10 @@
                 filteredSum += Number(ex.amount);
                 tbody.innerHTML += `<tr><td>${ex.account}</td><td>${ex.supplier}</td><td class="text-danger font-bold">${formatCurrency(ex.amount)}</td>
                     <td><span style="background: #f1f5f9; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;">${ex.source === 'cashier' ? 'الكاشير' : 'الإدارة'}</span></td>
-                    <td class="no-print"><button class="btn-small btn-danger-outline" onclick="deleteExpense(${ex.id})"><i class="fas fa-trash"></i></button></td></tr>`;
+                    <td class="no-print">
+                        <button class="btn-small" style="background: var(--warning); color: #000; margin-left: 4px;" onclick="openEditExpenseModal(${ex.id})"><i class="fas fa-edit"></i></button>
+                        <button class="btn-small btn-danger-outline" onclick="deleteExpense(${ex.id})"><i class="fas fa-trash"></i></button>
+                    </td></tr>`;
             });
             totalEl.textContent = formatCurrency(filteredSum);
         }
@@ -981,7 +1018,10 @@
             state.expenses.filter(ex => ex.supplier === selectedEmployeeForStatement && ex.date >= dateFrom && ex.date <= dateTo).sort((a,b) => a.date.localeCompare(b.date)).forEach(ex => {
                 totalAmount += Number(ex.amount);
                 tbody.innerHTML += `<tr><td>${ex.date}</td><td>${ex.account}</td><td>${ex.source === 'cashier' ? 'الكاشير' : 'الإدارة'}</td><td class="text-danger">${formatCurrency(ex.amount)}</td>
-                <td class="no-print"><button class="btn-small btn-danger-outline" onclick="deleteExpense(${ex.id})"><i class="fas fa-trash"></i></button></td></tr>`;
+                <td class="no-print">
+                    <button class="btn-small" style="background: var(--warning); color: #000; margin-left: 4px;" onclick="openEditExpenseModal(${ex.id})"><i class="fas fa-edit"></i></button>
+                    <button class="btn-small btn-danger-outline" onclick="deleteExpense(${ex.id})"><i class="fas fa-trash"></i></button>
+                </td></tr>`;
             });
             totalEl.textContent = formatCurrency(totalAmount);
         }
@@ -994,11 +1034,15 @@
             const dateFrom = document.getElementById('sup_date_from').value; const dateTo = document.getElementById('sup_date_to').value;
             const tbody = document.getElementById('sup-statement-tbody'); const totalEl = document.getElementById('sup-statement-total');
             tbody.innerHTML = ''; let netBalance = 0; let moves = [];
-            state.purchasesHistory.filter(p => p.supplier === selectedSupplierForStatement && p.date >= dateFrom && p.date <= dateTo).forEach(p => moves.push({ date: p.date, type: 'فاتورة شراء بالآجل', details: 'إضافة دين', amount: p.amount, isIncrease: true }));
-            state.expenses.filter(ex => ex.account === 'تسديد ديون' && ex.supplier === `تسديد للمجهز: ${selectedSupplierForStatement}` && ex.date >= dateFrom && ex.date <= dateTo).forEach(ex => moves.push({ date: ex.date, type: 'دفعة تسديد', details: ex.source === 'cashier' ? 'صندوق الكاشير' : 'الإدارة', amount: ex.amount, isIncrease: false }));
+            state.purchasesHistory.filter(p => p.supplier === selectedSupplierForStatement && p.date >= dateFrom && p.date <= dateTo).forEach(p => moves.push({ id: p.id, moveType: 'purchase', date: p.date, type: 'فاتورة شراء بالآجل', details: 'إضافة دين', amount: p.amount, isIncrease: true }));
+            state.expenses.filter(ex => ex.account === 'تسديد ديون' && ex.supplier === `تسديد للمجهز: ${selectedSupplierForStatement}` && ex.date >= dateFrom && ex.date <= dateTo).forEach(ex => moves.push({ id: ex.id, moveType: 'expense', date: ex.date, type: 'دفعة تسديد', details: ex.source === 'cashier' ? 'صندوق الكاشير' : 'الإدارة', amount: ex.amount, isIncrease: false }));
             moves.sort((a,b) => a.date.localeCompare(b.date)).forEach(m => {
                 m.amount = Number(m.amount); if(m.isIncrease) netBalance += m.amount; else netBalance -= m.amount;
-                tbody.innerHTML += `<tr><td>${m.date}</td><td><span class="${m.isIncrease ? 'badge-minus' : 'badge-plus'}">${m.type}</span></td><td>${m.details}</td><td class="${m.isIncrease ? 'text-danger' : 'text-success'}">${m.isIncrease ? '+' : '-'}${formatCurrency(m.amount)}</td></tr>`;
+                const actionBtn = m.moveType === 'purchase' ? 
+                    `<button class="btn-small" style="background: var(--warning); color: #000; margin-left: 4px;" onclick="openEditPurchaseModal(${m.id})"><i class="fas fa-edit"></i></button><button class="btn-small btn-danger-outline" onclick="deletePurchase(${m.id})"><i class="fas fa-trash"></i></button>` :
+                    `<button class="btn-small" style="background: var(--warning); color: #000; margin-left: 4px;" onclick="openEditExpenseModal(${m.id})"><i class="fas fa-edit"></i></button><button class="btn-small btn-danger-outline" onclick="deleteExpense(${m.id})"><i class="fas fa-trash"></i></button>`;
+
+                tbody.innerHTML += `<tr><td>${m.date}</td><td><span class="${m.isIncrease ? 'badge-minus' : 'badge-plus'}">${m.type}</span></td><td>${m.details}</td><td class="${m.isIncrease ? 'text-danger' : 'text-success'}">${m.isIncrease ? '+' : '-'}${formatCurrency(m.amount)}</td><td class="no-print">${actionBtn}</td></tr>`;
             });
             totalEl.textContent = formatCurrency(netBalance); totalEl.className = netBalance > 0 ? 'text-danger' : 'text-success';
         }
@@ -1094,9 +1138,169 @@
                     const supName = ex.supplier.replace('تسديد للمجهز: ', '');
                     if (state.debts[supName] !== undefined) { state.debts[supName] += Number(ex.amount); await supabaseClient.from('debts').upsert([{ supplier_name: supName, amount: state.debts[supName] }]); }
                 }
-                state.expenses.splice(expIndex, 1); updateDailyUI(); if(selectedEmployeeForStatement) generateEmployeeStatement();
+                state.expenses.splice(expIndex, 1); updateDailyUI(); if(selectedEmployeeForStatement) generateEmployeeStatement(); if(selectedSupplierForStatement) generateSupplierStatement();
             } catch (error) { alert("حدث خطأ أثناء الحذف."); }
         };
+
+        window.deletePurchase = async function(id) {
+            if(currentUser.role !== 'admin') return alert("صلاحيات المدير فقط!");
+            if(!confirm("⚠️ تأكيد حذف فاتورة الشراء؟")) return;
+            const purIndex = state.purchasesHistory.findIndex(p => p.id === id); if(purIndex === -1) return alert("يرجى تحديث الصفحة والمحاولة.");
+            const p = state.purchasesHistory[purIndex];
+            try {
+                await supabaseClient.from('purchases').delete().eq('id', id);
+                if (state.debts[p.supplier] !== undefined) {
+                    state.debts[p.supplier] -= Number(p.amount); await supabaseClient.from('debts').upsert([{ supplier_name: p.supplier, amount: state.debts[p.supplier] }]);
+                }
+                state.purchasesHistory.splice(purIndex, 1); updateDailyUI(); if(selectedSupplierForStatement) generateSupplierStatement();
+            } catch (error) { alert("حدث خطأ أثناء الحذف."); }
+        };
+
+        // ================= دوال التعديل =================
+        window.openEditExpenseModal = function(id) {
+            if(currentUser.role !== 'admin') return alert("صلاحيات المدير فقط!");
+            const ex = state.expenses.find(e => e.id === id);
+            if(!ex) return alert("الرمز غير موجود.");
+            document.getElementById('edit_type').value = 'expense';
+            document.getElementById('edit_id').value = id;
+            document.getElementById('edit_date').value = ex.date;
+            document.getElementById('edit_source').value = ex.source;
+            document.getElementById('edit_account').value = ex.account;
+            document.getElementById('edit_supplier').value = ex.supplier;
+            document.getElementById('edit_amount').value = ex.amount;
+            
+            document.getElementById('edit_source_group').style.display = 'block';
+            document.getElementById('edit_account_group').style.display = 'block';
+            document.getElementById('edit_account_label').textContent = 'التصنيف / البيان';
+            document.getElementById('edit_supplier_label').textContent = 'الملاحظة / المستفيد / المجهز';
+            document.getElementById('modal-title').innerHTML = '<i class="fas fa-edit text-primary"></i> تعديل الصرفية';
+            document.getElementById('edit-modal').style.display = 'flex';
+        };
+
+        window.openEditPurchaseModal = function(id) {
+            if(currentUser.role !== 'admin') return alert("صلاحيات المدير فقط!");
+            const p = state.purchasesHistory.find(item => item.id === id);
+            if(!p) return alert("الرمز غير موجود.");
+            document.getElementById('edit_type').value = 'purchase';
+            document.getElementById('edit_id').value = id;
+            document.getElementById('edit_date').value = p.date;
+            document.getElementById('edit_supplier').value = p.supplier;
+            document.getElementById('edit_amount').value = p.amount;
+
+            document.getElementById('edit_source_group').style.display = 'none';
+            document.getElementById('edit_account_group').style.display = 'none';
+            document.getElementById('edit_supplier_label').textContent = 'اسم المجهز';
+            document.getElementById('modal-title').innerHTML = '<i class="fas fa-edit text-primary"></i> تعديل فاتورة الشراء';
+            document.getElementById('edit-modal').style.display = 'flex';
+        };
+
+        window.closeEditModal = function() {
+            document.getElementById('edit-modal').style.display = 'none';
+        };
+
+        document.getElementById('edit-item-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const type = document.getElementById('edit_type').value;
+            const id = parseInt(document.getElementById('edit_id').value);
+            const newDate = document.getElementById('edit_date').value;
+            const newAmount = parseFloat(document.getElementById('edit_amount').value);
+
+            if (type === 'expense') {
+                const newSource = document.getElementById('edit_source').value;
+                const newAccount = document.getElementById('edit_account').value.trim();
+                const newSupplier = document.getElementById('edit_supplier').value.trim();
+
+                const expIndex = state.expenses.findIndex(e => e.id === id);
+                if (expIndex === -1) return;
+                const oldEx = state.expenses[expIndex];
+
+                document.getElementById('loader').style.display = 'flex';
+                try {
+                    await supabaseClient.from('expenses').update({
+                        date: newDate, source: newSource, account: newAccount, amount: newAmount, supplier: newSupplier
+                    }).eq('id', id);
+
+                    // إرجاع الأرصدة القديمة
+                    if (oldEx.account === 'سحب من الراتب' && state.employees[oldEx.supplier] !== undefined) {
+                        state.employees[oldEx.supplier] -= Number(oldEx.amount);
+                    } else if (oldEx.account === 'تسديد ديون') {
+                        const oldSup = oldEx.supplier.replace('تسديد للمجهز: ', '');
+                        if (state.debts[oldSup] !== undefined) state.debts[oldSup] += Number(oldEx.amount);
+                    }
+
+                    // تحديث القيم في الحالة المحلية
+                    state.expenses[expIndex] = { id, date: newDate, source: newSource, account: newAccount, amount: newAmount, supplier: newSupplier };
+
+                    // تطبيق الأرصدة الجديدة
+                    if (newAccount === 'سحب من الراتب') {
+                        state.employees[newSupplier] = (state.employees[newSupplier] || 0) + newAmount;
+                        await supabaseClient.from('employees').upsert([{ employee_name: newSupplier, amount: state.employees[newSupplier] }]);
+                    } else if (newAccount === 'تسديد ديون') {
+                        const supName = newSupplier.startsWith('تسديد للمجهز: ') ? newSupplier.replace('تسديد للمجهز: ', '') : newSupplier;
+                        state.debts[supName] = (state.debts[supName] || 0) - newAmount;
+                        await supabaseClient.from('debts').upsert([{ supplier_name: supName, amount: state.debts[supName] }]);
+                    }
+
+                    // حفظ الموظف/المجهز القديم إذا تغير الاسم
+                    if (oldEx.account === 'سحب من الراتب' && oldEx.supplier !== newSupplier && state.employees[oldEx.supplier] !== undefined) {
+                        await supabaseClient.from('employees').upsert([{ employee_name: oldEx.supplier, amount: state.employees[oldEx.supplier] }]);
+                    }
+                    if (oldEx.account === 'تسديد ديون') {
+                        const oldSup = oldEx.supplier.replace('تسديد للمجهز: ', '');
+                        if (oldSup !== newSupplier && state.debts[oldSup] !== undefined) {
+                            await supabaseClient.from('debts').upsert([{ supplier_name: oldSup, amount: state.debts[oldSup] }]);
+                        }
+                    }
+
+                    closeEditModal();
+                    updateDailyUI();
+                    if (selectedEmployeeForStatement) generateEmployeeStatement();
+                    if (selectedSupplierForStatement) generateSupplierStatement();
+                } catch (err) {
+                    alert('حدث خطأ أثناء تعديل الصرفية.');
+                } finally {
+                    document.getElementById('loader').style.display = 'none';
+                }
+
+            } else if (type === 'purchase') {
+                const newSupplier = document.getElementById('edit_supplier').value.trim();
+                const purIndex = state.purchasesHistory.findIndex(p => p.id === id);
+                if (purIndex === -1) return;
+                const oldP = state.purchasesHistory[purIndex];
+
+                document.getElementById('loader').style.display = 'flex';
+                try {
+                    await supabaseClient.from('purchases').update({
+                        date: newDate, supplier: newSupplier, amount: newAmount
+                    }).eq('id', id);
+
+                    // إرجاع الدين القديم
+                    if (state.debts[oldP.supplier] !== undefined) {
+                        state.debts[oldP.supplier] -= Number(oldP.amount);
+                    }
+
+                    // تحديث الحالة المحلية
+                    state.purchasesHistory[purIndex] = { id, date: newDate, supplier: newSupplier, amount: newAmount };
+
+                    // تطبيق الدين الجديد
+                    state.debts[newSupplier] = (state.debts[newSupplier] || 0) + newAmount;
+
+                    // تحديث السجلات في قاعدة البيانات
+                    await supabaseClient.from('debts').upsert([{ supplier_name: oldP.supplier, amount: state.debts[oldP.supplier] }]);
+                    if (oldP.supplier !== newSupplier) {
+                        await supabaseClient.from('debts').upsert([{ supplier_name: newSupplier, amount: state.debts[newSupplier] }]);
+                    }
+
+                    closeEditModal();
+                    updateDailyUI();
+                    if (selectedSupplierForStatement) generateSupplierStatement();
+                } catch (err) {
+                    alert('حدث خطأ أثناء تعديل الفاتورة.');
+                } finally {
+                    document.getElementById('loader').style.display = 'none';
+                }
+            }
+        });
     </script>
 </body>
 </html>
