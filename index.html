@@ -653,16 +653,16 @@
                 <h3 class="section-label" style="font-size: 1.2rem; margin-top: 30px;"><i class="fas fa-chart-bar"></i> تحليل المبيعات للفترة المحددة</h3>
                 
                 <div class="dashboard-cards" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
-                    <div class="card card-primary" style="padding: 15px;"><h3>المبيعات الكلية</h3><p class="amount" id="rep_sales_total" style="font-size: 1.5rem;">0</p></div>
-                    <div class="card card-warning" style="padding: 15px;"><h3>مبيعات توترز</h3><p class="amount text-warning" id="rep_sales_toters" style="font-size: 1.5rem;">0</p></div>
-                    <div class="card card-warning" style="padding: 15px;"><h3>مبيعات طلباتي</h3><p class="amount text-warning" id="rep_sales_talabaty" style="font-size: 1.5rem;">0</p></div>
-                    <div class="card card-warning" style="padding: 15px;"><h3>مبيعات بلي</h3><p class="amount text-warning" id="rep_sales_baly" style="font-size: 1.5rem;">0</p></div>
-                    <div class="card card-warning" style="padding: 15px;"><h3>الدفع الإلكتروني</h3><p class="amount text-warning" id="rep_sales_epay" style="font-size: 1.5rem;">0</p></div>
+                    <div class="card card-primary" style="padding: 15px;"><h3>المبيعات الكلية</h3><p class="amount" id="rep_sales_total" style="font-size: 1.5rem;">0 د.ع</p></div>
+                    <div class="card card-warning" style="padding: 15px;"><h3>مبيعات توترز</h3><p class="amount text-warning" id="rep_sales_toters" style="font-size: 1.5rem;">0 د.ع</p></div>
+                    <div class="card card-warning" style="padding: 15px;"><h3>مبيعات طلباتي</h3><p class="amount text-warning" id="rep_sales_talabaty" style="font-size: 1.5rem;">0 د.ع</p></div>
+                    <div class="card card-warning" style="padding: 15px;"><h3>مبيعات بلي</h3><p class="amount text-warning" id="rep_sales_baly" style="font-size: 1.5rem;">0 د.ع</p></div>
+                    <div class="card card-warning" style="padding: 15px;"><h3>الدفع الإلكتروني</h3><p class="amount text-warning" id="rep_sales_epay" style="font-size: 1.5rem;">0 د.ع</p></div>
                 </div>
                 <div class="dashboard-cards" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
-                    <div class="card card-danger" style="padding: 15px;"><h3>مرتجعات المبيعات</h3><p class="amount text-danger" id="rep_sales_return" style="font-size: 1.5rem;">0</p></div>
-                    <div class="card card-danger" style="padding: 15px;"><h3>إلغاء أوردر</h3><p class="amount text-danger" id="rep_sales_canceled" style="font-size: 1.5rem;">0</p></div>
-                    <div class="card card-danger" style="padding: 15px;"><h3>أجور التوصيل</h3><p class="amount text-danger" id="rep_sales_delivery" style="font-size: 1.5rem;">0</p></div>
+                    <div class="card card-danger" style="padding: 15px;"><h3>مرتجعات المبيعات</h3><p class="amount text-danger" id="rep_sales_return" style="font-size: 1.5rem;">0 د.ع</p></div>
+                    <div class="card card-danger" style="padding: 15px;"><h3>إلغاء أوردر</h3><p class="amount text-danger" id="rep_sales_canceled" style="font-size: 1.5rem;">0 د.ع</p></div>
+                    <div class="card card-danger" style="padding: 15px;"><h3>أجور التوصيل</h3><p class="amount text-danger" id="rep_sales_delivery" style="font-size: 1.5rem;">0 د.ع</p></div>
                 </div>
                 
                 <div class="grid-2" style="margin-bottom: 30px;">
@@ -1097,16 +1097,38 @@
             e.target.reset(); document.getElementById('debt_date').value = document.getElementById('global-date').value; updateDailyUI(); if(selectedSupplierForStatement === sup) generateSupplierStatement();
         });
 
+        // تعديل دالة احتساب التقارير لضمان تطابق المبيعات النقدية المرحّلة بدقة
         function generateReports() {
             const dateFrom = document.getElementById('rep_date_from').value; const dateTo = document.getElementById('rep_date_to').value;
             const accFilter = document.getElementById('rep_filter_account').value; const srcFilter = document.getElementById('rep_filter_source').value;
             let rData = { total:0, toters:0, talabaty:0, baly:0, epay:0, returns:0, canceled:0, delivery:0 };
+            
+            // تجميع بيانات المبيعات المرحّلة فقط للفترة المحددة
             state.salesRecords.filter(s => s.date >= dateFrom && s.date <= dateTo).forEach(s => {
-                rData.total += Number(s.total); rData.toters += Number(s.toters); rData.talabaty += Number(s.talabaty); rData.baly += Number(s.baly); rData.epay += Number(s.epay); rData.returns += Number(s.returns); rData.canceled += Number(s.canceled); rData.delivery += Number(s.delivery);
+                rData.total += Number(s.total || 0); 
+                rData.toters += Number(s.toters || 0); 
+                rData.talabaty += Number(s.talabaty || 0); 
+                rData.baly += Number(s.baly || 0); 
+                rData.epay += Number(s.epay || 0); 
+                rData.returns += Number(s.returns || s.return_amount || 0); 
+                rData.canceled += Number(s.canceled || 0); 
+                rData.delivery += Number(s.delivery || 0);
             });
-            document.getElementById('rep_sales_total').textContent = formatCurrency(rData.total); document.getElementById('rep_sales_toters').textContent = formatCurrency(rData.toters); document.getElementById('rep_sales_talabaty').textContent = formatCurrency(rData.talabaty); document.getElementById('rep_sales_baly').textContent = formatCurrency(rData.baly); document.getElementById('rep_sales_epay').textContent = formatCurrency(rData.epay); document.getElementById('rep_sales_return').textContent = formatCurrency(rData.returns); document.getElementById('rep_sales_canceled').textContent = formatCurrency(rData.canceled); document.getElementById('rep_sales_delivery').textContent = formatCurrency(rData.delivery);
+
+            document.getElementById('rep_sales_total').textContent = formatCurrency(rData.total); 
+            document.getElementById('rep_sales_toters').textContent = formatCurrency(rData.toters); 
+            document.getElementById('rep_sales_talabaty').textContent = formatCurrency(rData.talabaty); 
+            document.getElementById('rep_sales_baly').textContent = formatCurrency(rData.baly); 
+            document.getElementById('rep_sales_epay').textContent = formatCurrency(rData.epay); 
+            document.getElementById('rep_sales_return').textContent = formatCurrency(rData.returns); 
+            document.getElementById('rep_sales_canceled').textContent = formatCurrency(rData.canceled); 
+            document.getElementById('rep_sales_delivery').textContent = formatCurrency(rData.delivery);
+            
+            // معادلة المبيعات النقدية الصافية المرحّلة (المبيعات الكلية - التطبيقات والدفع الإلكتروني - المستقطعات والمرتجعات)
             const netCash = rData.total - (rData.toters + rData.talabaty + rData.baly + rData.epay + rData.returns + rData.canceled + rData.delivery);
-            document.getElementById('rep_sales_net_cash').textContent = formatCurrency(netCash); document.getElementById('rep_sales_cash_epay').textContent = formatCurrency(netCash + rData.epay);
+            document.getElementById('rep_sales_net_cash').textContent = formatCurrency(netCash); 
+            document.getElementById('rep_sales_cash_epay').textContent = formatCurrency(netCash + rData.epay);
+
             const repTbody = document.getElementById('rep_expenses_tbody'); repTbody.innerHTML = ''; let visibleExpSum = 0;
             state.expenses.filter(ex => (ex.date >= dateFrom && ex.date <= dateTo) && (accFilter === 'all' || ex.account === accFilter) && (srcFilter === 'all' || ex.source === srcFilter)).sort((a,b) => a.date.localeCompare(b.date)).forEach(ex => {
                 visibleExpSum += Number(ex.amount); repTbody.innerHTML += `<tr><td>${ex.date}</td><td>${ex.account}</td><td>${ex.supplier}</td><td><span class="badge-plus" style="background:#f1f5f9;color:#475569;">${ex.source === 'cashier' ? 'الكاشير' : 'الإدارة'}</span></td><td class="text-danger font-bold">${formatCurrency(ex.amount)}</td></tr>`;
