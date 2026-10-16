@@ -667,7 +667,7 @@
                 
                 <div class="grid-2" style="margin-bottom: 30px;">
                     <div class="card card-success" style="background: #f0fdf4; border-color: #16a34a;">
-                        <h3 style="color: #166534;"><i class="fas fa-money-bill"></i> صافي المبيعات النقدية (المرحّلة)</h3>
+                        <h3 style="color: #166534;"><i class="fas fa-money-bill"></i> صافي النقدية المطابق للكاشير</h3>
                         <p class="amount text-success" id="rep_sales_net_cash" style="font-size: 2rem;">0 د.ع</p>
                     </div>
                     <div class="card card-primary" style="background: #eff6ff; border-color: var(--primary);">
@@ -1058,7 +1058,7 @@
             });
         });
 
-        // ترحيل المبيعات مع حفظ صافي النقد بدقة
+        // ترحيل المبيعات أو تحديثها بالكامل
         document.getElementById('sales-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const date = document.getElementById('sales_date').value;
@@ -1075,8 +1075,20 @@
             const net_cash = total - (toters + talabaty + baly + epay + returns + canceled + delivery + cashierExp);
 
             const record = { date, total, toters, talabaty, baly, epay, returns, canceled, delivery, net_cash };
-            const { data } = await supabaseClient.from('sales').insert([record]).select(); if(data) record.id = data[0].id; state.salesRecords.push(record);
-            alert('تم الترحيل بنجاح.'); e.target.reset(); document.getElementById('sales_date').value = document.getElementById('global-date').value; updateDailyUI();
+            
+            const existingIdx = state.salesRecords.findIndex(s => s.date === date);
+            if (existingIdx !== -1) {
+                const existingId = state.salesRecords[existingIdx].id;
+                await supabaseClient.from('sales').update(record).eq('id', existingId);
+                record.id = existingId;
+                state.salesRecords[existingIdx] = record;
+            } else {
+                const { data } = await supabaseClient.from('sales').insert([record]).select();
+                if(data && data.length > 0) record.id = data[0].id;
+                state.salesRecords.push(record);
+            }
+
+            alert('تم الترحيل بنجاح.'); updateDailyUI();
         });
 
         document.getElementById('expense-form').addEventListener('submit', async (e) => {
@@ -1113,23 +1125,46 @@
             e.target.reset(); document.getElementById('debt_date').value = document.getElementById('global-date').value; updateDailyUI(); if(selectedSupplierForStatement === sup) generateSupplierStatement();
         });
 
-        // دالة التقارير الدقيقة للمطابقة التامة بين المبيعات والمبيعات النقدية المرحلة
+        // دالة التقرير الدقيقة والمطابقة تماماً مع الحساب المباشر للواجهة والصرفيات
         function generateReports() {
             const dateFrom = document.getElementById('rep_date_from').value; const dateTo = document.getElementById('rep_date_to').value;
             const accFilter = document.getElementById('rep_filter_account').value; const srcFilter = document.getElementById('rep_filter_source').value;
             let rData = { total:0, toters:0, talabaty:0, baly:0, epay:0, returns:0, canceled:0, delivery:0, netCash:0 };
-            
-            const filteredSales = state.salesRecords.filter(s => s.date >= dateFrom && s.date <= dateTo);
-            
-            filteredSales.forEach(s => {
-                const total = Number(s.total || 0);
-                const toters = Number(s.toters || 0);
-                const talabaty = Number(s.talabaty || 0);
-                const baly = Number(s.baly || 0);
-                const epay = Number(s.epay || 0);
-                const returns = Number(s.returns || s.return_amount || 0);
-                const canceled = Number(s.canceled || 0);
-                const delivery = Number(s.delivery || 0);
+
+            const selectedSalesDate = document.getElementById('sales_date').value;
+            const formTotal = parseFloat(document.getElementById('sales_total').value) || 0;
+
+            // حصر كل التواريخ الفريدة للفترة المحددة
+            let datesSet = new Set();
+            state.salesRecords.forEach(s => { if(s.date >= dateFrom && s.date <= dateTo) datesSet.add(s.date); });
+            if (selectedSalesDate >= dateFrom && selectedSalesDate <= dateTo) datesSet.add(selectedSalesDate);
+
+            datesSet.forEach(d => {
+                let s = state.salesRecords.find(item => item.date === d);
+                let total = 0, toters = 0, talabaty = 0, baly = 0, epay = 0, returns = 0, canceled = 0, delivery = 0;
+
+                if (d === selectedSalesDate && formTotal > 0) {
+                    total = formTotal;
+                    toters = parseFloat(document.getElementById('sales_toters').value) || 0;
+                    talabaty = parseFloat(document.getElementById('sales_talabaty').value) || 0;
+                    baly = parseFloat(document.getElementById('sales_baly').value) || 0;
+                    epay = parseFloat(document.getElementById('sales_epay').value) || 0;
+                    returns = parseFloat(document.getElementById('sales_return').value) || 0;
+                    canceled = parseFloat(document.getElementById('sales_canceled').value) || 0;
+                    delivery = parseFloat(document.getElementById('sales_delivery').value) || 0;
+                } else if (s) {
+                    total = Number(s.total || 0);
+                    toters = Number(s.toters || 0);
+                    talabaty = Number(s.talabaty || 0);
+                    baly = Number(s.baly || 0);
+                    epay = Number(s.epay || 0);
+                    returns = Number(s.returns || s.return_amount || 0);
+                    canceled = Number(s.canceled || 0);
+                    delivery = Number(s.delivery || 0);
+                }
+
+                const dayCashierExp = state.expenses.filter(ex => ex.date === d && ex.source === 'cashier').reduce((sum, ex) => sum + Number(ex.amount), 0);
+                const dayNetCash = total > 0 ? (total - (toters + talabaty + baly + epay + returns + canceled + delivery + dayCashierExp)) : 0;
 
                 rData.total += total;
                 rData.toters += toters;
@@ -1139,13 +1174,7 @@
                 rData.returns += returns;
                 rData.canceled += canceled;
                 rData.delivery += delivery;
-
-                if (s.net_cash !== undefined && s.net_cash !== null) {
-                    rData.netCash += Number(s.net_cash);
-                } else {
-                    const dayCashierExp = state.expenses.filter(ex => ex.date === s.date && ex.source === 'cashier').reduce((sum, ex) => sum + Number(ex.amount), 0);
-                    rData.netCash += (total - (toters + talabaty + baly + epay + returns + canceled + delivery + dayCashierExp));
-                }
+                rData.netCash += dayNetCash;
             });
 
             document.getElementById('rep_sales_total').textContent = formatCurrency(rData.total); 
