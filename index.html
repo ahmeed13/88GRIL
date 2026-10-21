@@ -1127,6 +1127,7 @@
             });
         });
 
+        // ================= التعديل هنا: كود معالجة حفظ المبيعات مع التقاط الأخطاء =================
         document.getElementById('sales-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const date = document.getElementById('sales_date').value;
@@ -1145,22 +1146,31 @@
 
             const record = { date, total, toters, talabaty, baly, epay, returns, canceled, delivery, discount, net_cash };
             
-            const existingIdx = state.salesRecords.findIndex(s => s.date === date);
-            if (existingIdx !== -1) {
-                const existingId = state.salesRecords[existingIdx].id;
-                await supabaseClient.from('sales').update(record).eq('id', existingId);
-                record.id = existingId;
-                state.salesRecords[existingIdx] = record;
-            } else {
-                const { data } = await supabaseClient.from('sales').insert([record]).select();
-                if(data && data.length > 0) record.id = data[0].id;
-                state.salesRecords.push(record);
-            }
+            try {
+                const existingIdx = state.salesRecords.findIndex(s => s.date === date);
+                if (existingIdx !== -1) {
+                    const existingId = state.salesRecords[existingIdx].id;
+                    const { error } = await supabaseClient.from('sales').update(record).eq('id', existingId);
+                    if (error) throw error; // إيقاف العملية وإظهار الخطأ
+                    
+                    record.id = existingId;
+                    state.salesRecords[existingIdx] = record;
+                } else {
+                    const { data, error } = await supabaseClient.from('sales').insert([record]).select();
+                    if (error) throw error; // إيقاف العملية وإظهار الخطأ
+                    
+                    if(data && data.length > 0) record.id = data[0].id;
+                    state.salesRecords.push(record);
+                }
 
-            alert('تم الترحيل بنجاح.'); 
-            e.target.reset(); // تصفير جميع الحقول
-            document.getElementById('sales_date').value = document.getElementById('global-date').value; // إعادة تعيين التاريخ
-            updateDailyUI(); // تحديث الواجهة
+                alert('تم الترحيل بنجاح.'); 
+                e.target.reset(); // تصفير جميع الحقول
+                document.getElementById('sales_date').value = document.getElementById('global-date').value; // إعادة تعيين التاريخ
+                updateDailyUI(); // تحديث الواجهة
+            } catch (err) {
+                alert('فشل ترحيل البيانات: ' + err.message);
+                console.error("خطأ في قاعدة البيانات:", err);
+            }
         });
 
         document.getElementById('expense-form').addEventListener('submit', async (e) => {
