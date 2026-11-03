@@ -13,8 +13,10 @@
     <!-- مكتبة الأيقونات FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- استدعاء مكتبة Supabase -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- استدعاء مكتبة Firebase (Firestore & Realtime DB Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
     
     <style>
         /* ================= متغيرات التصميم (Design System) ================= */
@@ -687,12 +689,12 @@
                         </div>
                     </div>
                     
-                    <div class="filter-bar no-print" style="background: #f8fafc;">
-                        <div class="form-group" style="margin: 0; flex: 1;">
+                    <div class="filter-bar" style="background: #f8fafc;">
+                        <div class="form-group no-print" style="margin: 0; flex: 1;">
                             <label>تصفية حسب التصنيف</label>
                             <select id="rep_filter_account"><option value="all">الكل</option></select>
                         </div>
-                        <div class="form-group" style="margin: 0; flex: 1;">
+                        <div class="form-group no-print" style="margin: 0; flex: 1;">
                             <label>تصفية حسب الصندوق</label>
                             <select id="rep_filter_source">
                                 <option value="all">الكل</option><option value="cashier">صندوق الكاشير</option><option value="admin">الإدارة</option>
@@ -710,6 +712,12 @@
                         <table id="reports-table">
                             <thead><tr><th>التاريخ</th><th>التصنيف</th><th>الملاحظة/المستفيد</th><th>الصندوق</th><th>المبلغ</th></tr></thead>
                             <tbody id="rep_expenses_tbody"></tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="4" style="text-align: left;">مجموع الصرفيات المعروضة:</td>
+                                    <td id="rep_expenses_tfoot_sum" class="text-danger" style="font-size: 1.2rem;">0 د.ع</td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>
@@ -793,9 +801,256 @@
 
     <!-- كود الجافاسكربت -->
     <script>
-        const supabaseUrl = 'https://ztulochyubbyudgcrodp.supabase.co'; 
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0dWxvY2h5dWJieXVkZ2Nyb2RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5OTUwNjEsImV4cCI6MjEwNzU3MTA2MX0.p78OLnHcUfBmB-PINuw0-xx4dRp-exf99CqRHxhn8QI'; 
-        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+        // ================= إعدادات الاتصال بقاعدة بيانات Firebase =================
+        // ضع بيانات مشروعك من إعدادات Firebase Console هنا
+        const firebaseConfig = {
+            apiKey: "AIzaSyB_4_8kXkV-RVhFxUbbHOz1cWqq-ZwYFDY",
+            authDomain: "restaurant-system-d079e.firebaseapp.com",
+            projectId: "restaurant-system-d079e",
+            storageBucket: "restaurant-system-d079e.firebasestorage.app",
+            messagingSenderId: "919551604393",
+            appId: "1:919551604393:web:9844e97589328c078a9bb8",
+            measurementId: "G-3SKSXT1RX4"
+        };
+
+        // اختيار نوع قاعدة البيانات في فايربيس: 'firestore' (Cloud Firestore) أو 'rtdb' (Realtime Database)
+        const FIREBASE_DB_MODE = 'firestore';
+
+        let firebaseDb = null;
+        let isFirebaseConfigured = false;
+        try {
+            if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY" && firebaseConfig.projectId !== "YOUR_PROJECT_ID") {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                firebaseDb = (FIREBASE_DB_MODE === 'rtdb') ? firebase.database() : firebase.firestore();
+                isFirebaseConfigured = true;
+            }
+        } catch (err) {
+            console.warn("يرجى التحقق من إعدادات Firebase:", err);
+        }
+
+        // محول ذكي يربط جميع دوال وعمليات النظام بـ Firebase (مع دعم العمل الفوري والتخزين الاحتياطي قبل وضع المفاتيح)
+        const PRIMARY_KEYS = {
+            debts: 'supplier_name',
+            employees: 'employee_name',
+            categories: 'name'
+        };
+
+        function getLocalTable(table) {
+            try {
+                const raw = localStorage.getItem('fb_cache_' + table);
+                if (raw) return JSON.parse(raw);
+            } catch (e) {}
+            if (table === 'users') {
+                const defaultUsers = [{ id: 1, username: 'admin', password: '123', role: 'admin' }];
+                saveLocalTable('users', defaultUsers);
+                return defaultUsers;
+            }
+            return [];
+        }
+
+        function saveLocalTable(table, list) {
+            try {
+                localStorage.setItem('fb_cache_' + table, JSON.stringify(list));
+            } catch (e) {}
+        }
+
+        async function fbFetchTable(table) {
+            if (!isFirebaseConfigured) return getLocalTable(table);
+            try {
+                if (FIREBASE_DB_MODE === 'rtdb') {
+                    const snap = await firebaseDb.ref(table).once('value');
+                    const val = snap.val();
+                    let rows = [];
+                    if (val) {
+                        rows = Object.keys(val).map(k => ({ ...val[k], _docId: k }));
+                    }
+                    if (table === 'users' && rows.length === 0) {
+                        const defaultAdmin = { id: 1, username: 'admin', password: '123', role: 'admin' };
+                        await firebaseDb.ref('users/1').set(defaultAdmin);
+                        return [defaultAdmin];
+                    }
+                    return rows;
+                } else {
+                    const snap = await firebaseDb.collection(table).get();
+                    const rows = snap.docs.map(doc => ({ ...doc.data(), _docId: doc.id }));
+                    if (table === 'users' && rows.length === 0) {
+                        const defaultAdmin = { id: 1, username: 'admin', password: '123', role: 'admin' };
+                        await firebaseDb.collection('users').doc('1').set(defaultAdmin);
+                        return [defaultAdmin];
+                    }
+                    return rows;
+                }
+            } catch (err) {
+                console.error(`Firebase read error (${table}):`, err);
+                throw err;
+            }
+        }
+
+        async function fbWriteRow(table, docId, rowData) {
+            const cleanData = { ...rowData };
+            delete cleanData._docId;
+            if (!isFirebaseConfigured) return;
+            if (FIREBASE_DB_MODE === 'rtdb') {
+                await firebaseDb.ref(`${table}/${docId}`).set(cleanData);
+            } else {
+                await firebaseDb.collection(table).doc(String(docId)).set(cleanData, { merge: true });
+            }
+        }
+
+        async function fbDeleteRow(table, docId) {
+            if (!isFirebaseConfigured) return;
+            if (FIREBASE_DB_MODE === 'rtdb') {
+                await firebaseDb.ref(`${table}/${docId}`).remove();
+            } else {
+                await firebaseDb.collection(table).doc(String(docId)).delete();
+            }
+        }
+
+        class FirebaseQueryBuilder {
+            constructor(table) {
+                this.table = table;
+                this.op = 'select';
+                this.payload = null;
+                this.filters = [];
+            }
+            select() {
+                if (this.op === 'select') this.op = 'select';
+                return this;
+            }
+            insert(records) {
+                this.op = 'insert';
+                this.payload = Array.isArray(records) ? records : [records];
+                return this;
+            }
+            upsert(records) {
+                this.op = 'upsert';
+                this.payload = Array.isArray(records) ? records : [records];
+                return this;
+            }
+            update(values) {
+                this.op = 'update';
+                this.payload = values;
+                return this;
+            }
+            delete() {
+                this.op = 'delete';
+                return this;
+            }
+            eq(field, value) {
+                this.filters.push(row => String(row[field]) === String(value));
+                return this;
+            }
+            gte(field, value) {
+                this.filters.push(row => row[field] >= value);
+                return this;
+            }
+            lte(field, value) {
+                this.filters.push(row => row[field] <= value);
+                return this;
+            }
+            matches(row) {
+                return this.filters.every(fn => fn(row));
+            }
+            async execute() {
+                try {
+                    const pk = PRIMARY_KEYS[this.table] || 'id';
+                    let rows = await fbFetchTable(this.table);
+
+                    if (this.op === 'select') {
+                        const result = rows.filter(r => this.matches(r)).map(r => {
+                            const copy = { ...r };
+                            delete copy._docId;
+                            return copy;
+                        });
+                        return { data: result, error: null };
+                    }
+
+                    if (this.op === 'insert') {
+                        const inserted = [];
+                        for (let item of this.payload) {
+                            const newItem = { ...item };
+                            if (pk === 'id' && !newItem.id) {
+                                newItem.id = Date.now() + Math.floor(Math.random() * 1000);
+                            }
+                            const rawKey = String(newItem[pk] || (Date.now() + Math.floor(Math.random() * 1000)));
+                            const docKey = rawKey.replace(/[.#$\[\]\/]/g, '_');
+                            await fbWriteRow(this.table, docKey, newItem);
+                            rows.push({ ...newItem, _docId: docKey });
+                            inserted.push(newItem);
+                        }
+                        if (!isFirebaseConfigured) saveLocalTable(this.table, rows);
+                        return { data: inserted, error: null };
+                    }
+
+                    if (this.op === 'upsert') {
+                        const upserted = [];
+                        for (let item of this.payload) {
+                            const newItem = { ...item };
+                            const matchIdx = rows.findIndex(r => String(r[pk]) === String(newItem[pk]));
+                            let docKey;
+                            if (matchIdx !== -1) {
+                                docKey = rows[matchIdx]._docId || String(newItem[pk]).replace(/[.#$\[\]\/]/g, '_');
+                                rows[matchIdx] = { ...rows[matchIdx], ...newItem, _docId: docKey };
+                            } else {
+                                if (pk === 'id' && !newItem.id) {
+                                    newItem.id = Date.now() + Math.floor(Math.random() * 1000);
+                                }
+                                docKey = String(newItem[pk]).replace(/[.#$\[\]\/]/g, '_');
+                                rows.push({ ...newItem, _docId: docKey });
+                            }
+                            await fbWriteRow(this.table, docKey, newItem);
+                            upserted.push(newItem);
+                        }
+                        if (!isFirebaseConfigured) saveLocalTable(this.table, rows);
+                        return { data: upserted, error: null };
+                    }
+
+                    if (this.op === 'update') {
+                        const updated = [];
+                        for (let i = 0; i < rows.length; i++) {
+                            if (this.matches(rows[i])) {
+                                const docKey = rows[i]._docId || String(rows[i][pk]).replace(/[.#$\[\]\/]/g, '_');
+                                const merged = { ...rows[i], ...this.payload };
+                                rows[i] = merged;
+                                await fbWriteRow(this.table, docKey, merged);
+                                const clean = { ...merged };
+                                delete clean._docId;
+                                updated.push(clean);
+                            }
+                        }
+                        if (!isFirebaseConfigured) saveLocalTable(this.table, rows);
+                        return { data: updated, error: null };
+                    }
+
+                    if (this.op === 'delete') {
+                        const remaining = [];
+                        for (let r of rows) {
+                            if (this.matches(r)) {
+                                const docKey = r._docId || String(r[pk]).replace(/[.#$\[\]\/]/g, '_');
+                                await fbDeleteRow(this.table, docKey);
+                            } else {
+                                remaining.push(r);
+                            }
+                        }
+                        if (!isFirebaseConfigured) saveLocalTable(this.table, remaining);
+                        return { data: null, error: null };
+                    }
+
+                    return { data: null, error: null };
+                } catch (error) {
+                    return { data: null, error };
+                }
+            }
+            then(resolve, reject) {
+                return this.execute().then(resolve, reject);
+            }
+        }
+
+        const supabaseClient = {
+            from: (table) => new FirebaseQueryBuilder(table)
+        };
 
         let state = { salesRecords: [], expenses: [], purchasesHistory: [], debts: {}, categories: [], employees: {} };
         let selectedEmployeeForStatement = ''; let selectedSupplierForStatement = ''; let currentUser = null;
@@ -1279,7 +1534,7 @@
             state.expenses.filter(ex => (ex.date >= dateFrom && ex.date <= dateTo) && (accFilter === 'all' || ex.account === accFilter) && (srcFilter === 'all' || ex.source === srcFilter)).sort((a,b) => a.date.localeCompare(b.date)).forEach(ex => {
                 visibleExpSum += Number(ex.amount); repTbody.innerHTML += `<tr><td>${ex.date}</td><td>${ex.account}</td><td>${ex.supplier}</td><td><span class="badge-plus" style="background:#f1f5f9;color:#475569;">${ex.source === 'cashier' ? 'الكاشير' : 'الإدارة'}</span></td><td class="text-danger font-bold">${formatCurrency(ex.amount)}</td></tr>`;
             });
-            document.getElementById('rep_expenses_sum').textContent = formatCurrency(visibleExpSum);
+            document.getElementById('rep_expenses_sum').textContent = formatCurrency(visibleExpSum); const tfootSum = document.getElementById('rep_expenses_tfoot_sum'); if (tfootSum) tfootSum.textContent = formatCurrency(visibleExpSum);
         }
         document.getElementById('btn-generate-reports').addEventListener('click', generateReports); document.getElementById('rep_filter_account').addEventListener('change', generateReports); document.getElementById('rep_filter_source').addEventListener('change', generateReports);
 
