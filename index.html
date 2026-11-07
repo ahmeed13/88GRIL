@@ -218,8 +218,45 @@
         .badge-minus { background: #fee2e2; color: #991b1b; padding: 4px 10px; border-radius: 20px; font-weight: 700; font-size: 0.85rem; }
         
         .filter-bar { 
-            display: flex; gap: 15px; margin-bottom: 20px; align-items: flex-end; 
+            display: flex; gap: 15px; margin-bottom: 20px; align-items: flex-end; flex-wrap: wrap;
             background: var(--background); padding: 15px; border-radius: var(--radius-md); border: 1px solid var(--border); 
+        }
+
+        /* ================= البحث حسب أولوية الأحرف وأزرار نوع التقرير ================= */
+        .priority-autocomplete-wrapper { position: relative; }
+        .priority-autocomplete-list {
+            display: none; position: absolute; top: calc(100% + 4px); right: 0; left: 0;
+            background: var(--surface); border: 1px solid var(--primary); border-radius: var(--radius-md);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15); max-height: 240px; overflow-y: auto;
+            z-index: 1000; padding: 6px 0;
+        }
+        .priority-autocomplete-list.active { display: block; }
+        .priority-autocomplete-item {
+            padding: 9px 14px; cursor: pointer; display: flex; justify-content: space-between;
+            align-items: center; font-size: 0.92rem; color: var(--dark); transition: background 0.15s;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .priority-autocomplete-item:last-child { border-bottom: none; }
+        .priority-autocomplete-item:hover, .priority-autocomplete-item.highlighted {
+            background-color: #eef2ff; color: var(--primary);
+        }
+        .priority-match-highlight { color: var(--primary); font-weight: 800; text-decoration: underline; }
+        .priority-badge {
+            font-size: 0.75rem; padding: 2px 8px; border-radius: 12px;
+            background: #f1f5f9; color: var(--secondary); font-weight: 600;
+        }
+        .priority-badge.tier-1 { background: #dcfce7; color: #166534; }
+        .priority-badge.tier-2 { background: #e0e7ff; color: #3730a3; }
+        .report-type-pills {
+            display: inline-flex; background: var(--background); padding: 4px;
+            border-radius: var(--radius-md); border: 1px solid var(--border); gap: 4px;
+        }
+        .report-type-pill {
+            padding: 6px 14px; border-radius: 7px; border: none; background: transparent;
+            color: var(--secondary); font-weight: 700; font-size: 0.88rem; cursor: pointer;
+        }
+        .report-type-pill.active {
+            background: var(--primary); color: white; box-shadow: var(--shadow-sm);
         }
 
         /* ================= شاشة التحميل ================= */
@@ -440,10 +477,11 @@
                                     </select>
                                 </div>
                             </div>
-                            <div class="form-group">
-                                <label>تصنيف الصرفية (ابحث أو اكتب جديد)</label>
-                                <input list="categories-list" id="exp_account" required placeholder="مثال: لحم، خضار، كهرباء..." autocomplete="off">
+                            <div class="form-group priority-autocomplete-wrapper">
+                                <label>تصنيف الصرفية (ابحث حسب أولوية الأحرف أو اكتب جديد)</label>
+                                <input list="categories-list" id="exp_account" required placeholder="ابحث بأول حرف (مثال: لحم، خضار، كهرباء...)" autocomplete="off">
                                 <datalist id="categories-list"></datalist>
+                                <div id="exp_account_suggestions" class="priority-autocomplete-list no-print"></div>
                             </div>
                             <div class="form-group"><label>المبلغ (د.ع)</label><input type="number" id="exp_amount" required min="1" style="font-weight: bold; color: var(--danger);"></div>
                             <div class="form-group"><label>الملاحظات / المستفيد</label><input type="text" id="exp_supplier" placeholder="تفاصيل إضافية (اختياري)"></div>
@@ -681,8 +719,14 @@
                 </div>
 
                 <div class="table-container">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
-                        <h3 style="margin: 0; border: none;"><i class="fas fa-list-alt text-primary"></i> كشف الصرفيات التفصيلي</h3>
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+                        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                            <h3 id="rep_table_title" style="margin: 0; border: none;"><i class="fas fa-list-alt text-primary"></i> كشف الصرفيات التفصيلي</h3>
+                            <div class="report-type-pills no-print">
+                                <button type="button" id="btn_mode_detailed" class="report-type-pill active" onclick="setReportViewMode('detailed')"><i class="fas fa-list-ul"></i> تقرير تفصيلي</button>
+                                <button type="button" id="btn_mode_summary" class="report-type-pill" onclick="setReportViewMode('summary')"><i class="fas fa-layer-group"></i> إجمالي المواد المصروفة</button>
+                            </div>
+                        </div>
                         <div class="no-print" style="display: flex; gap: 8px;">
                             <button class="btn-small" onclick="window.print()"><i class="fas fa-print"></i> طباعة</button>
                             <button class="btn-small btn-success" onclick="exportTableToCSV('reports-table', 'reports.csv')"><i class="fas fa-file-excel"></i> إكسل</button>
@@ -690,19 +734,33 @@
                     </div>
                     
                     <div class="filter-bar" style="background: #f8fafc;">
-                        <div class="form-group no-print" style="margin: 0; flex: 1;">
-                            <label>تصفية حسب التصنيف</label>
-                            <select id="rep_filter_account"><option value="all">الكل</option></select>
+                        <div class="form-group no-print" style="margin: 0; flex: 1; min-width: 170px;">
+                            <label>نوع التقرير</label>
+                            <select id="rep_report_type" style="font-weight: 700; color: var(--primary);">
+                                <option value="detailed">تقرير تفصيلي (العمليات)</option>
+                                <option value="summary">تقرير إجمالي (المواد المصروفة)</option>
+                            </select>
                         </div>
-                        <div class="form-group no-print" style="margin: 0; flex: 1;">
+                        <div class="form-group no-print priority-autocomplete-wrapper" style="margin: 0; flex: 1.5; min-width: 240px;">
+                            <label>بحث / تصفية صنف المصروف (حسب أولوية الأحرف)</label>
+                            <div style="display: flex; gap: 6px;">
+                                <div style="position: relative; flex: 1.2;">
+                                    <input type="text" id="rep_search_account" placeholder="ابحث بأول حرف من الصنف..." autocomplete="off" style="padding-left: 28px;">
+                                    <button type="button" id="rep_clear_search" onclick="clearReportCategorySearch()" title="مسح البحث" style="display: none; position: absolute; left: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--danger); font-size: 1.1rem; font-weight: bold; padding: 0 4px;">&times;</button>
+                                    <div id="rep_account_suggestions" class="priority-autocomplete-list no-print"></div>
+                                </div>
+                                <select id="rep_filter_account" style="flex: 1;"><option value="all">الكل</option></select>
+                            </div>
+                        </div>
+                        <div class="form-group no-print" style="margin: 0; flex: 1; min-width: 140px;">
                             <label>تصفية حسب الصندوق</label>
                             <select id="rep_filter_source">
                                 <option value="all">الكل</option><option value="cashier">صندوق الكاشير</option><option value="admin">الإدارة</option>
                             </select>
                         </div>
-                        <div class="form-group" style="margin: 0; flex: 1; display: flex; align-items: flex-end;">
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 190px; display: flex; align-items: flex-end;">
                             <div style="background: white; padding: 12px; border-radius: var(--radius-md); width: 100%; border: 1px solid var(--border); text-align: center;">
-                                <span style="font-size: 0.9rem; color: var(--secondary);">مجموع الصرفيات المعروضة:</span><br>
+                                <span id="rep_expenses_sum_label" style="font-size: 0.9rem; color: var(--secondary);">مجموع الصرفيات المعروضة:</span><br>
                                 <span id="rep_expenses_sum" class="text-danger" style="font-size: 1.3rem; font-weight: 800;">0 د.ع</span>
                             </div>
                         </div>
@@ -710,11 +768,11 @@
                     
                     <div style="overflow-x: auto;">
                         <table id="reports-table">
-                            <thead><tr><th>التاريخ</th><th>التصنيف</th><th>الملاحظة/المستفيد</th><th>الصندوق</th><th>المبلغ</th></tr></thead>
+                            <thead id="rep_expenses_thead"><tr><th>التاريخ</th><th>التصنيف</th><th>الملاحظة/المستفيد</th><th>الصندوق</th><th>المبلغ</th></tr></thead>
                             <tbody id="rep_expenses_tbody"></tbody>
                             <tfoot>
                                 <tr>
-                                    <td colspan="4" style="text-align: left;">مجموع الصرفيات المعروضة:</td>
+                                    <td colspan="4" id="rep_expenses_tfoot_label" style="text-align: left;">مجموع الصرفيات المعروضة:</td>
                                     <td id="rep_expenses_tfoot_sum" class="text-danger" style="font-size: 1.2rem;">0 د.ع</td>
                                 </tr>
                             </tfoot>
@@ -788,7 +846,7 @@
                         <option value="admin">الإدارة</option>
                     </select>
                 </div>
-                <div class="form-group" id="edit_account_group"><label id="edit_account_label">التصنيف / البيان</label><input type="text" id="edit_account"></div>
+                <div class="form-group priority-autocomplete-wrapper" id="edit_account_group"><label id="edit_account_label">التصنيف / البيان</label><input type="text" id="edit_account" autocomplete="off"><div id="edit_account_suggestions" class="priority-autocomplete-list no-print"></div></div>
                 <div class="form-group" id="edit_supplier_group"><label id="edit_supplier_label">الملاحظة / المستفيد / المجهز</label><input type="text" id="edit_supplier"></div>
                 <div class="form-group"><label>المبلغ (د.ع)</label><input type="number" id="edit_amount" required min="1" style="font-weight: bold; color: var(--danger);"></div>
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -1244,11 +1302,306 @@
             }
         }
 
-        function updateCategoriesList() {
-            const list = document.getElementById('categories-list'); const repSelect = document.getElementById('rep_filter_account');
-            list.innerHTML = ''; repSelect.innerHTML = '<option value="all">الكل</option>';
-            state.categories.forEach(cat => { list.innerHTML += `<option value="${cat}">`; repSelect.innerHTML += `<option value="${cat}">${cat}</option>`; });
-            repSelect.innerHTML += `<option value="سحب من الراتب">سحب من الراتب</option>`;
+        // دوال مساعدة للنوافذ التنبيهية متوافقة مع جميع المتصفحات والمعاينات
+        const _nativeAlert = typeof window !== 'undefined' && window.alert ? window.alert.bind(window) : null;
+        const _nativeConfirm = typeof window !== 'undefined' && window.confirm ? window.confirm.bind(window) : null;
+        const _nativePrompt = typeof window !== 'undefined' && window.prompt ? window.prompt.bind(window) : null;
+
+        function showToastNotification(msg) {
+            let toastContainer = document.getElementById('app-toast-container');
+            if (!toastContainer) {
+                toastContainer = document.createElement('div');
+                toastContainer.id = 'app-toast-container';
+                toastContainer.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:10000;display:flex;flex-direction:column;gap:8px;max-width:90%;width:380px;pointer-events:none;';
+                document.body.appendChild(toastContainer);
+            }
+            const toast = document.createElement('div');
+            toast.style.cssText = 'background:#1e293b;color:#fff;padding:12px 18px;border-radius:10px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.2);font-weight:700;font-size:0.95rem;text-align:center;border-right:4px solid #4f46e5;pointer-events:auto;';
+            toast.textContent = msg;
+            toastContainer.appendChild(toast);
+            setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3500);
+        }
+
+        function alert(msg) {
+            showToastNotification(msg);
+            try { if (_nativeAlert) _nativeAlert(msg); } catch (e) {}
+        }
+
+        function confirm(msg) {
+            try {
+                if (_nativeConfirm) {
+                    const res = _nativeConfirm(msg);
+                    if (typeof res === 'boolean') return res;
+                }
+            } catch (e) {}
+            return true;
+        }
+
+        function prompt(msg, defaultVal = '') {
+            try {
+                if (_nativePrompt) {
+                    return _nativePrompt(msg, defaultVal);
+                }
+            } catch (e) {}
+            return defaultVal;
+        }
+
+        // ================= خوارزمية البحث والترتيب حسب أولوية الأحرف =================
+        function normalizeArabicForSearch(str) {
+            if (!str) return '';
+            return String(str).trim()
+                .replace(/[\u064B-\u065F\u0670]/g, '') // إزالة التشكيل
+                .replace(/[أإآٱ]/g, 'ا')
+                .replace(/ة/g, 'ه')
+                .replace(/ى/g, 'ي')
+                .toLowerCase();
+        }
+
+        function getAllAvailableCategories() {
+            const catSet = new Set();
+            (state.categories || []).forEach(c => { if (c && c.trim()) catSet.add(c.trim()); });
+            (state.expenses || []).forEach(ex => { if (ex && ex.account && ex.account.trim()) catSet.add(ex.account.trim()); });
+            catSet.add('سحب من الراتب');
+            catSet.add('تسديد ديون');
+            return Array.from(catSet);
+        }
+
+        function getCategoryLetterPriority(categoryName, rawQuery) {
+            const cat = String(categoryName || '').trim();
+            const q = String(rawQuery || '').trim();
+            if (!q) {
+                return { matched: true, tier: 1, pos: 0, exactPrefix: 0, label: 'أبجدي' };
+            }
+
+            const normCat = normalizeArabicForSearch(cat);
+            const normQ = normalizeArabicForSearch(q);
+            if (!normQ) {
+                return { matched: true, tier: 1, pos: 0, exactPrefix: 0, label: 'أبجدي' };
+            }
+
+            // حساب عدد الأحرف المتطابقة من بداية الكلمة بالضبط
+            let exactPrefix = 0;
+            const minLen = Math.min(normCat.length, normQ.length);
+            for (let i = 0; i < minLen; i++) {
+                if (normCat[i] === normQ[i]) exactPrefix++;
+                else break;
+            }
+
+            // الأولوية 0: تطابق تام
+            if (cat === q || normCat === normQ) {
+                return { matched: true, tier: 0, pos: 0, exactPrefix: normQ.length, label: 'تطابق تام' };
+            }
+            // الأولوية 1: يبدأ بنفس الأحرف المكتوبة حرفياً من الحرف الأول
+            if (cat.startsWith(q)) {
+                return { matched: true, tier: 1, pos: 0, exactPrefix: q.length, label: 'أولوية الحرف الأول' };
+            }
+            // الأولوية 2: يبدأ بنفس الأحرف بعد توحيد الهمزات
+            if (normCat.startsWith(normQ)) {
+                return { matched: true, tier: 2, pos: 0, exactPrefix: normQ.length, label: 'أولوية البداية' };
+            }
+            // الأولوية 3: كلمة فرعية داخل اسم الصنف تبدأ بالأحرف المكتوبة
+            const words = normCat.split(/[\s\-_\/]+/);
+            for (let wIdx = 1; wIdx < words.length; wIdx++) {
+                if (words[wIdx].startsWith(normQ)) {
+                    return { matched: true, tier: 3, pos: normCat.indexOf(words[wIdx]), exactPrefix, label: 'بداية كلمة فرعية' };
+                }
+            }
+            // الأولوية 4: يحتوي على المقطع المكتوب (مرتب حسب أقرب موقع للحرف الأول)
+            const subIdx = normCat.indexOf(normQ);
+            if (subIdx !== -1) {
+                return { matched: true, tier: 4, pos: subIdx, exactPrefix, label: `الحرف رقم ${subIdx + 1}` };
+            }
+            // الأولوية 5: تطابق تسلسلي للأحرف حسب الأولوية
+            let qIdx = 0;
+            let firstMatchPos = -1;
+            let totalGap = 0;
+            let lastPos = -1;
+            for (let cIdx = 0; cIdx < normCat.length && qIdx < normQ.length; cIdx++) {
+                if (normCat[cIdx] === normQ[qIdx]) {
+                    if (firstMatchPos === -1) firstMatchPos = cIdx;
+                    if (lastPos !== -1) totalGap += (cIdx - lastPos - 1);
+                    lastPos = cIdx;
+                    qIdx++;
+                }
+            }
+            if (qIdx === normQ.length) {
+                return { matched: true, tier: 5, pos: firstMatchPos + totalGap, exactPrefix, label: 'تطابق تسلسل الأحرف' };
+            }
+
+            return { matched: false, tier: 99, pos: 999, exactPrefix: 0, label: '' };
+        }
+
+        function sortCategoriesByLetterPriority(categoriesList, rawQuery) {
+            const q = String(rawQuery || '').trim();
+            const scored = [];
+            categoriesList.forEach(cat => {
+                const score = getCategoryLetterPriority(cat, q);
+                if (score.matched) {
+                    scored.push({ cat, score });
+                }
+            });
+            scored.sort((a, b) => {
+                if (a.score.tier !== b.score.tier) return a.score.tier - b.score.tier;
+                if (a.score.exactPrefix !== b.score.exactPrefix) return b.score.exactPrefix - a.score.exactPrefix;
+                if (a.score.pos !== b.score.pos) return a.score.pos - b.score.pos;
+                return a.cat.localeCompare(b.cat, 'ar');
+            });
+            return scored;
+        }
+
+        function escapeHtmlStr(str) {
+            return String(str || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function highlightPriorityMatch(text, rawQuery) {
+            const cleanText = String(text || '');
+            const q = String(rawQuery || '').trim();
+            if (!q) return escapeHtmlStr(cleanText);
+
+            const normText = normalizeArabicForSearch(cleanText);
+            const normQ = normalizeArabicForSearch(q);
+            if (!normQ) return escapeHtmlStr(cleanText);
+
+            const matchIdx = normText.indexOf(normQ);
+            if (matchIdx !== -1 && matchIdx + normQ.length <= cleanText.length) {
+                const before = escapeHtmlStr(cleanText.slice(0, matchIdx));
+                const middle = escapeHtmlStr(cleanText.slice(matchIdx, matchIdx + normQ.length));
+                const after = escapeHtmlStr(cleanText.slice(matchIdx + normQ.length));
+                return `${before}<span class="priority-match-highlight">${middle}</span>${after}`;
+            }
+            return escapeHtmlStr(cleanText);
+        }
+
+        function updateCategoriesList(searchQuery = '') {
+            const list = document.getElementById('categories-list');
+            const repSelect = document.getElementById('rep_filter_account');
+            const currentRepVal = repSelect ? repSelect.value : 'all';
+
+            const allCats = getAllAvailableCategories();
+            const sortedForDatalist = sortCategoriesByLetterPriority(allCats, '');
+            if (list) {
+                list.innerHTML = '';
+                sortedForDatalist.forEach(item => {
+                    list.innerHTML += `<option value="${escapeHtmlStr(item.cat)}">`;
+                });
+            }
+
+            if (repSelect) {
+                const repQuery = searchQuery !== '' ? searchQuery : (document.getElementById('rep_search_account') ? document.getElementById('rep_search_account').value.trim() : '');
+                const sortedForRep = sortCategoriesByLetterPriority(allCats, repQuery);
+                repSelect.innerHTML = '<option value="all">الكل (جميع الأصناف)</option>';
+                sortedForRep.forEach(item => {
+                    repSelect.innerHTML += `<option value="${escapeHtmlStr(item.cat)}">${escapeHtmlStr(item.cat)}</option>`;
+                });
+                if (currentRepVal && (currentRepVal === 'all' || sortedForRep.some(i => i.cat === currentRepVal))) {
+                    repSelect.value = currentRepVal;
+                } else {
+                    repSelect.value = 'all';
+                }
+            }
+        }
+
+        function setupPriorityAutocomplete(inputId, suggestionsId, onSelectCallback, isReportSearch = false) {
+            const inputEl = document.getElementById(inputId);
+            const suggEl = document.getElementById(suggestionsId);
+            if (!inputEl || !suggEl) return;
+            if (inputEl.hasAttribute("list")) inputEl.removeAttribute("list");
+
+            let activeIndex = -1;
+
+            function renderSuggestions() {
+                const query = inputEl.value.trim();
+                const allCats = getAllAvailableCategories();
+                const ranked = sortCategoriesByLetterPriority(allCats, query);
+
+                if (ranked.length === 0 && !isReportSearch) {
+                    suggEl.classList.remove('active');
+                    suggEl.innerHTML = '';
+                    return;
+                }
+
+                let html = '';
+                if (isReportSearch) {
+                    if (query) {
+                        html += `<div class="priority-autocomplete-item" data-val="__ALL_MATCHING__">
+                            <span><i class="fas fa-filter text-primary"></i> عرض كل الأصناف المطابقة لـ "<strong>${escapeHtmlStr(query)}</strong>" (${ranked.length})</span>
+                            <span class="priority-badge tier-1">تصفية ذكية</span>
+                        </div>`;
+                    } else {
+                        html += `<div class="priority-autocomplete-item" data-val="__ALL__">
+                            <span><i class="fas fa-layer-group text-primary"></i> عرض جميع الأصناف (${allCats.length})</span>
+                            <span class="priority-badge">الكل</span>
+                        </div>`;
+                    }
+                }
+
+                ranked.forEach((item, idx) => {
+                    const badgeClass = item.score.tier <= 2 ? 'tier-1' : (item.score.tier === 3 ? 'tier-2' : '');
+                    const badgeText = query ? item.score.label : `ترتيب ${idx + 1}`;
+                    html += `<div class="priority-autocomplete-item" data-val="${escapeHtmlStr(item.cat)}">
+                        <span>${highlightPriorityMatch(item.cat, query)}</span>
+                        <span class="priority-badge ${badgeClass}">${badgeText}</span>
+                    </div>`;
+                });
+
+                if (!html) {
+                    html = `<div style="padding: 10px 14px; color: var(--secondary); font-size: 0.85rem; text-align: center;">لا يوجد صنف مطابق</div>`;
+                }
+
+                suggEl.innerHTML = html;
+                suggEl.classList.add('active');
+                activeIndex = -1;
+
+                suggEl.querySelectorAll('.priority-autocomplete-item').forEach(itemEl => {
+                    itemEl.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        const val = itemEl.getAttribute('data-val');
+                        onSelectCallback(val);
+                        suggEl.classList.remove('active');
+                    });
+                });
+            }
+
+            inputEl.addEventListener('focus', renderSuggestions);
+            inputEl.addEventListener('input', () => {
+                renderSuggestions();
+                if (isReportSearch) {
+                    onSelectCallback('__TYPING__');
+                }
+            });
+
+            inputEl.addEventListener('keydown', (e) => {
+                const items = suggEl.querySelectorAll('.priority-autocomplete-item');
+                if (!suggEl.classList.contains('active') || items.length === 0) return;
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    activeIndex = (activeIndex + 1) % items.length;
+                    items.forEach((el, i) => el.classList.toggle('highlighted', i === activeIndex));
+                    items[activeIndex].scrollIntoView({ block: 'nearest' });
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    activeIndex = (activeIndex - 1 + items.length) % items.length;
+                    items.forEach((el, i) => el.classList.toggle('highlighted', i === activeIndex));
+                    items[activeIndex].scrollIntoView({ block: 'nearest' });
+                } else if (e.key === 'Enter' && activeIndex >= 0 && items[activeIndex]) {
+                    e.preventDefault();
+                    const val = items[activeIndex].getAttribute('data-val');
+                    onSelectCallback(val);
+                    suggEl.classList.remove('active');
+                } else if (e.key === 'Escape') {
+                    suggEl.classList.remove('active');
+                }
+            });
+
+            inputEl.addEventListener('blur', () => {
+                setTimeout(() => suggEl.classList.remove('active'), 180);
+            });
         }
 
         document.querySelectorAll('.nav-links a').forEach(link => {
@@ -1530,13 +1883,226 @@
             document.getElementById('rep_sales_net_cash').textContent = formatCurrency(rData.netCash); 
             document.getElementById('rep_sales_cash_epay').textContent = formatCurrency(rData.netCash + rData.epay);
 
-            const repTbody = document.getElementById('rep_expenses_tbody'); repTbody.innerHTML = ''; let visibleExpSum = 0;
-            state.expenses.filter(ex => (ex.date >= dateFrom && ex.date <= dateTo) && (accFilter === 'all' || ex.account === accFilter) && (srcFilter === 'all' || ex.source === srcFilter)).sort((a,b) => a.date.localeCompare(b.date)).forEach(ex => {
-                visibleExpSum += Number(ex.amount); repTbody.innerHTML += `<tr><td>${ex.date}</td><td>${ex.account}</td><td>${ex.supplier}</td><td><span class="badge-plus" style="background:#f1f5f9;color:#475569;">${ex.source === 'cashier' ? 'الكاشير' : 'الإدارة'}</span></td><td class="text-danger font-bold">${formatCurrency(ex.amount)}</td></tr>`;
+            const reportTypeEl = document.getElementById('rep_report_type');
+            const reportMode = reportTypeEl ? reportTypeEl.value : 'detailed';
+            const searchInputEl = document.getElementById('rep_search_account');
+            const searchQuery = searchInputEl ? searchInputEl.value.trim() : '';
+            const clearBtn = document.getElementById('rep_clear_search');
+            if (clearBtn) clearBtn.style.display = searchQuery ? 'block' : 'none';
+
+            // مزامنة أزرار التبديل السريع وعنوان الجدول مع نوع التقرير المختار
+            const btnDetailed = document.getElementById('btn_mode_detailed');
+            const btnSummary = document.getElementById('btn_mode_summary');
+            const tableTitle = document.getElementById('rep_table_title');
+            const repThead = document.getElementById('rep_expenses_thead');
+            const sumLabel = document.getElementById('rep_expenses_sum_label');
+            const tfootLabel = document.getElementById('rep_expenses_tfoot_label');
+
+            if (btnDetailed && btnSummary) {
+                btnDetailed.classList.toggle('active', reportMode === 'detailed');
+                btnSummary.classList.toggle('active', reportMode === 'summary');
+            }
+
+            // تصفية الصرفيات حسب التاريخ، الصندوق، التصنيف المحدد، والبحث حسب أولوية الأحرف
+            const filteredExpenses = state.expenses.filter(ex => {
+                if (ex.date < dateFrom || ex.date > dateTo) return false;
+                if (srcFilter !== 'all' && ex.source !== srcFilter) return false;
+                if (accFilter !== 'all' && ex.account !== accFilter) return false;
+                if (searchQuery && accFilter === 'all') {
+                    const prio = getCategoryLetterPriority(ex.account || '', searchQuery);
+                    if (!prio.matched) return false;
+                }
+                return true;
             });
-            document.getElementById('rep_expenses_sum').textContent = formatCurrency(visibleExpSum); const tfootSum = document.getElementById('rep_expenses_tfoot_sum'); if (tfootSum) tfootSum.textContent = formatCurrency(visibleExpSum);
+
+            const repTbody = document.getElementById('rep_expenses_tbody');
+            repTbody.innerHTML = '';
+            let visibleExpSum = 0;
+
+            if (reportMode === 'summary') {
+                // ================= وضع التقرير الإجمالي (إجمالي المواد المصروفة) =================
+                if (tableTitle) tableTitle.innerHTML = '<i class="fas fa-layer-group text-primary"></i> تقرير إجمالي المواد المصروفة';
+                if (repThead) {
+                    repThead.innerHTML = '<tr><th>التصنيف / المادة المصروفة</th><th>عدد مرات الصرف</th><th>صندوق الكاشير</th><th>الإدارة</th><th>إجمالي المادة المصروفة</th></tr>';
+                }
+                if (sumLabel) sumLabel.textContent = 'إجمالي المواد المصروفة المعروضة:';
+
+                const materialsMap = {};
+                filteredExpenses.forEach(ex => {
+                    const accName = (ex.account || 'غير مصنف').trim();
+                    if (!materialsMap[accName]) {
+                        materialsMap[accName] = {
+                            account: accName,
+                            count: 0,
+                            cashierAmount: 0,
+                            adminAmount: 0,
+                            totalAmount: 0,
+                            priority: getCategoryLetterPriority(accName, searchQuery)
+                        };
+                    }
+                    const amt = Number(ex.amount) || 0;
+                    materialsMap[accName].count += 1;
+                    if (ex.source === 'cashier') {
+                        materialsMap[accName].cashierAmount += amt;
+                    } else {
+                        materialsMap[accName].adminAmount += amt;
+                    }
+                    materialsMap[accName].totalAmount += amt;
+                    visibleExpSum += amt;
+                });
+
+                const summaryItems = Object.values(materialsMap);
+                // ترتيب الأصناف حسب أولوية الأحرف عند البحث، أو أبجدياً
+                summaryItems.sort((a, b) => {
+                    if (searchQuery) {
+                        if (a.priority.tier !== b.priority.tier) return a.priority.tier - b.priority.tier;
+                        if (a.priority.exactPrefix !== b.priority.exactPrefix) return b.priority.exactPrefix - a.priority.exactPrefix;
+                        if (a.priority.pos !== b.priority.pos) return a.priority.pos - b.priority.pos;
+                    }
+                    return a.account.localeCompare(b.account, 'ar');
+                });
+
+                if (summaryItems.length === 0) {
+                    repTbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--secondary); padding: 25px;">لا توجد مواد مصروفة مطابقة للفترة أو الفلتر المحدد</td></tr>';
+                } else {
+                    summaryItems.forEach(item => {
+                        const safeAccAttr = escapeHtmlStr(item.account);
+                        repTbody.innerHTML += `<tr>
+                            <td style="font-weight: 700;">
+                                <button type="button" class="btn-link" data-cat="${safeAccAttr}" onclick="drilldownCategoryDetails(this.getAttribute('data-cat'))" title="انقر لعرض الحركات التفصيلية لهذا الصنف">
+                                    <i class="fas fa-box text-primary" style="margin-left: 6px;"></i>${highlightPriorityMatch(item.account, searchQuery)}
+                                </button>
+                            </td>
+                            <td><span class="badge-plus" style="background:#e0e7ff;color:#3730a3;">${item.count} ${item.count === 1 ? 'مرة' : 'مرات'}</span></td>
+                            <td style="font-weight: 600; color: #475569;">${formatCurrency(item.cashierAmount)}</td>
+                            <td style="font-weight: 600; color: #475569;">${formatCurrency(item.adminAmount)}</td>
+                            <td class="text-danger font-bold" style="font-size: 1.05rem; font-weight: 800;">${formatCurrency(item.totalAmount)}</td>
+                        </tr>`;
+                    });
+                }
+                if (tfootLabel) tfootLabel.textContent = `إجمالي المواد المصروفة المعروضة (${summaryItems.length} صنف):`;
+            } else {
+                // ================= وضع التقرير التفصيلي (كشف الصرفيات التفصيلي) =================
+                if (tableTitle) tableTitle.innerHTML = '<i class="fas fa-list-alt text-primary"></i> كشف الصرفيات التفصيلي';
+                if (repThead) {
+                    repThead.innerHTML = '<tr><th>التاريخ</th><th>التصنيف</th><th>الملاحظة/المستفيد</th><th>الصندوق</th><th>المبلغ</th></tr>';
+                }
+                if (sumLabel) sumLabel.textContent = 'مجموع الصرفيات المعروضة:';
+                if (tfootLabel) tfootLabel.textContent = 'مجموع الصرفيات المعروضة:';
+
+                // عند البحث بالأحرف، نرتب النتائج حسب أولوية الأحرف للصنف ثم حسب التاريخ
+                const sortedDetailed = [...filteredExpenses].sort((a, b) => {
+                    if (searchQuery && accFilter === 'all') {
+                        const pA = getCategoryLetterPriority(a.account || '', searchQuery);
+                        const pB = getCategoryLetterPriority(b.account || '', searchQuery);
+                        if (pA.tier !== pB.tier) return pA.tier - pB.tier;
+                        if (pA.exactPrefix !== pB.exactPrefix) return pB.exactPrefix - pA.exactPrefix;
+                        if (pA.pos !== pB.pos) return pA.pos - pB.pos;
+                        const catCmp = String(a.account || '').localeCompare(String(b.account || ''), 'ar');
+                        if (catCmp !== 0) return catCmp;
+                    }
+                    return a.date.localeCompare(b.date);
+                });
+
+                if (sortedDetailed.length === 0) {
+                    repTbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--secondary); padding: 25px;">لا توجد صرفيات مطابقة للفترة أو الفلتر المحدد</td></tr>';
+                } else {
+                    sortedDetailed.forEach(ex => {
+                        visibleExpSum += Number(ex.amount);
+                        repTbody.innerHTML += `<tr>
+                            <td>${ex.date}</td>
+                            <td style="font-weight: 700;">${highlightPriorityMatch(ex.account, searchQuery)}</td>
+                            <td>${escapeHtmlStr(ex.supplier)}</td>
+                            <td><span class="badge-plus" style="background:#f1f5f9;color:#475569;">${ex.source === 'cashier' ? 'الكاشير' : 'الإدارة'}</span></td>
+                            <td class="text-danger font-bold">${formatCurrency(ex.amount)}</td>
+                        </tr>`;
+                    });
+                }
+            }
+
+            document.getElementById('rep_expenses_sum').textContent = formatCurrency(visibleExpSum);
+            const tfootSum = document.getElementById('rep_expenses_tfoot_sum');
+            if (tfootSum) tfootSum.textContent = formatCurrency(visibleExpSum);
         }
-        document.getElementById('btn-generate-reports').addEventListener('click', generateReports); document.getElementById('rep_filter_account').addEventListener('change', generateReports); document.getElementById('rep_filter_source').addEventListener('change', generateReports);
+
+        window.setReportViewMode = function(mode) {
+            const reportTypeEl = document.getElementById('rep_report_type');
+            if (reportTypeEl) {
+                reportTypeEl.value = mode;
+                generateReports();
+            }
+        };
+
+        window.drilldownCategoryDetails = function(categoryName) {
+            if (!categoryName) return;
+            const repSelect = document.getElementById('rep_filter_account');
+            const searchInput = document.getElementById('rep_search_account');
+            const reportTypeEl = document.getElementById('rep_report_type');
+            if (searchInput) searchInput.value = categoryName;
+            updateCategoriesList(categoryName);
+            if (repSelect) repSelect.value = categoryName;
+            if (reportTypeEl) reportTypeEl.value = 'detailed';
+            generateReports();
+        };
+
+        window.clearReportCategorySearch = function() {
+            const searchInput = document.getElementById('rep_search_account');
+            const repSelect = document.getElementById('rep_filter_account');
+            if (searchInput) searchInput.value = '';
+            updateCategoriesList('');
+            if (repSelect) repSelect.value = 'all';
+            generateReports();
+        };
+
+        document.getElementById('btn-generate-reports').addEventListener('click', generateReports);
+        document.getElementById('rep_report_type').addEventListener('change', generateReports);
+        document.getElementById('rep_filter_account').addEventListener('change', (e) => {
+            const val = e.target.value;
+            const searchInput = document.getElementById('rep_search_account');
+            if (searchInput && val !== 'all') {
+                searchInput.value = val;
+            } else if (searchInput && val === 'all') {
+                searchInput.value = '';
+                updateCategoriesList('');
+            }
+            generateReports();
+        });
+        document.getElementById('rep_filter_source').addEventListener('change', generateReports);
+
+        // تفعيل البحث الذكي حسب أولوية الأحرف في حقول التصنيف والتقارير
+        setupPriorityAutocomplete('exp_account', 'exp_account_suggestions', (selectedVal) => {
+            if (selectedVal) document.getElementById('exp_account').value = selectedVal;
+        }, false);
+
+        setupPriorityAutocomplete('edit_account', 'edit_account_suggestions', (selectedVal) => {
+            if (selectedVal) document.getElementById('edit_account').value = selectedVal;
+        }, false);
+
+        setupPriorityAutocomplete('rep_search_account', 'rep_account_suggestions', (selectedVal) => {
+            const searchInput = document.getElementById('rep_search_account');
+            const repSelect = document.getElementById('rep_filter_account');
+            const currentQuery = searchInput ? searchInput.value.trim() : '';
+
+            if (selectedVal === '__TYPING__') {
+                updateCategoriesList(currentQuery);
+                if (repSelect) repSelect.value = 'all';
+                generateReports();
+            } else if (selectedVal === '__ALL__') {
+                if (searchInput) searchInput.value = '';
+                updateCategoriesList('');
+                if (repSelect) repSelect.value = 'all';
+                generateReports();
+            } else if (selectedVal === '__ALL_MATCHING__') {
+                updateCategoriesList(currentQuery);
+                if (repSelect) repSelect.value = 'all';
+                generateReports();
+            } else if (selectedVal) {
+                if (searchInput) searchInput.value = selectedVal;
+                updateCategoriesList(selectedVal);
+                if (repSelect) repSelect.value = selectedVal;
+                generateReports();
+            }
+        }, true);
 
         window.exportTableToCSV = function(tableId, filename) {
             let csv = []; let csvContent = "\uFEFF"; let rows = document.getElementById(tableId).querySelectorAll("tr");
