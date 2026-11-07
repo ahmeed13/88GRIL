@@ -258,6 +258,21 @@
         .report-type-pill.active {
             background: var(--primary); color: white; box-shadow: var(--shadow-sm);
         }
+        th.sortable-th {
+            cursor: pointer; user-select: none; transition: background-color 0.2s, color 0.2s;
+        }
+        th.sortable-th:hover {
+            background-color: #e2e8f0; color: var(--primary);
+        }
+        th.sortable-th.active-sort {
+            background-color: #e0e7ff; color: var(--primary);
+        }
+        th.sortable-th .sort-icon {
+            margin-right: 6px; font-size: 0.85rem; opacity: 0.45; transition: opacity 0.2s, transform 0.2s;
+        }
+        th.sortable-th:hover .sort-icon, th.sortable-th.active-sort .sort-icon {
+            opacity: 1; color: var(--primary);
+        }
 
         /* ================= شاشة التحميل ================= */
         #loader { 
@@ -1922,8 +1937,15 @@
             if (reportMode === 'summary') {
                 // ================= وضع التقرير الإجمالي (إجمالي المواد المصروفة) =================
                 if (tableTitle) tableTitle.innerHTML = '<i class="fas fa-layer-group text-primary"></i> تقرير إجمالي المواد المصروفة';
+                const sSort = window.reportSortState.summary;
                 if (repThead) {
-                    repThead.innerHTML = '<tr><th>التصنيف / المادة المصروفة</th><th>عدد مرات الصرف</th><th>صندوق الكاشير</th><th>الإدارة</th><th>إجمالي المادة المصروفة</th></tr>';
+                    repThead.innerHTML = `<tr>
+                        ${renderSortableTh('summary', 'account', 'alpha', 'التصنيف / المادة المصروفة', sSort)}
+                        ${renderSortableTh('summary', 'count', 'numeric', 'عدد مرات الصرف', sSort)}
+                        ${renderSortableTh('summary', 'cashierAmount', 'numeric', 'صندوق الكاشير', sSort)}
+                        ${renderSortableTh('summary', 'adminAmount', 'numeric', 'الإدارة', sSort)}
+                        ${renderSortableTh('summary', 'totalAmount', 'numeric', 'إجمالي المادة المصروفة', sSort)}
+                    </tr>`;
                 }
                 if (sumLabel) sumLabel.textContent = 'إجمالي المواد المصروفة المعروضة:';
 
@@ -1952,14 +1974,22 @@
                 });
 
                 const summaryItems = Object.values(materialsMap);
-                // ترتيب الأصناف حسب أولوية الأحرف عند البحث، أو أبجدياً
+                // ترتيب الأصناف حسب العمود المختار (أبجدياً / أولوية الأحرف، أو حسب الأكبر/الأصغر للأعمدة الرقمية)
                 summaryItems.sort((a, b) => {
-                    if (searchQuery) {
-                        if (a.priority.tier !== b.priority.tier) return a.priority.tier - b.priority.tier;
-                        if (a.priority.exactPrefix !== b.priority.exactPrefix) return b.priority.exactPrefix - a.priority.exactPrefix;
-                        if (a.priority.pos !== b.priority.pos) return a.priority.pos - b.priority.pos;
+                    const dirFactor = sSort.dir === 'asc' ? 1 : -1;
+                    if (sSort.key === 'account') {
+                        if (searchQuery && sSort.dir === 'asc') {
+                            if (a.priority.tier !== b.priority.tier) return a.priority.tier - b.priority.tier;
+                            if (a.priority.exactPrefix !== b.priority.exactPrefix) return b.priority.exactPrefix - a.priority.exactPrefix;
+                            if (a.priority.pos !== b.priority.pos) return a.priority.pos - b.priority.pos;
+                        }
+                        return a.account.localeCompare(b.account, 'ar') * dirFactor;
+                    } else {
+                        const valA = Number(a[sSort.key]) || 0;
+                        const valB = Number(b[sSort.key]) || 0;
+                        if (valA !== valB) return (valA - valB) * dirFactor;
+                        return a.account.localeCompare(b.account, 'ar');
                     }
-                    return a.account.localeCompare(b.account, 'ar');
                 });
 
                 if (summaryItems.length === 0) {
@@ -1984,15 +2014,23 @@
             } else {
                 // ================= وضع التقرير التفصيلي (كشف الصرفيات التفصيلي) =================
                 if (tableTitle) tableTitle.innerHTML = '<i class="fas fa-list-alt text-primary"></i> كشف الصرفيات التفصيلي';
+                const dSort = window.reportSortState.detailed;
                 if (repThead) {
-                    repThead.innerHTML = '<tr><th>التاريخ</th><th>التصنيف</th><th>الملاحظة/المستفيد</th><th>الصندوق</th><th>المبلغ</th></tr>';
+                    repThead.innerHTML = `<tr>
+                        ${renderSortableTh('detailed', 'date', 'date', 'التاريخ', dSort)}
+                        ${renderSortableTh('detailed', 'account', 'alpha', 'التصنيف', dSort)}
+                        ${renderSortableTh('detailed', 'supplier', 'alpha', 'الملاحظة/المستفيد', dSort)}
+                        ${renderSortableTh('detailed', 'source', 'alpha', 'الصندوق', dSort)}
+                        ${renderSortableTh('detailed', 'amount', 'numeric', 'المبلغ', dSort)}
+                    </tr>`;
                 }
                 if (sumLabel) sumLabel.textContent = 'مجموع الصرفيات المعروضة:';
                 if (tfootLabel) tfootLabel.textContent = 'مجموع الصرفيات المعروضة:';
 
-                // عند البحث بالأحرف، نرتب النتائج حسب أولوية الأحرف للصنف ثم حسب التاريخ
+                // ترتيب النتائج حسب العمود المختار أو حسب أولوية الأحرف عند البحث
                 const sortedDetailed = [...filteredExpenses].sort((a, b) => {
-                    if (searchQuery && accFilter === 'all') {
+                    const dirFactor = dSort.dir === 'asc' ? 1 : -1;
+                    if (searchQuery && accFilter === 'all' && !window.reportUserSortedManually) {
                         const pA = getCategoryLetterPriority(a.account || '', searchQuery);
                         const pB = getCategoryLetterPriority(b.account || '', searchQuery);
                         if (pA.tier !== pB.tier) return pA.tier - pB.tier;
@@ -2000,8 +2038,34 @@
                         if (pA.pos !== pB.pos) return pA.pos - pB.pos;
                         const catCmp = String(a.account || '').localeCompare(String(b.account || ''), 'ar');
                         if (catCmp !== 0) return catCmp;
+                        return a.date.localeCompare(b.date);
                     }
-                    return a.date.localeCompare(b.date);
+                    if (dSort.key === 'amount') {
+                        const valA = Number(a.amount) || 0;
+                        const valB = Number(b.amount) || 0;
+                        if (valA !== valB) return (valA - valB) * dirFactor;
+                        return a.date.localeCompare(b.date);
+                    } else if (dSort.key === 'account') {
+                        if (searchQuery && dSort.dir === 'asc') {
+                            const pA = getCategoryLetterPriority(a.account || '', searchQuery);
+                            const pB = getCategoryLetterPriority(b.account || '', searchQuery);
+                            if (pA.tier !== pB.tier) return pA.tier - pB.tier;
+                            if (pA.exactPrefix !== pB.exactPrefix) return pB.exactPrefix - pA.exactPrefix;
+                            if (pA.pos !== pB.pos) return pA.pos - pB.pos;
+                        }
+                        const cmp = String(a.account || '').localeCompare(String(b.account || ''), 'ar') * dirFactor;
+                        return cmp !== 0 ? cmp : a.date.localeCompare(b.date);
+                    } else if (dSort.key === 'supplier') {
+                        const cmp = String(a.supplier || '').localeCompare(String(b.supplier || ''), 'ar') * dirFactor;
+                        return cmp !== 0 ? cmp : a.date.localeCompare(b.date);
+                    } else if (dSort.key === 'source') {
+                        const sA = a.source === 'cashier' ? 'الكاشير' : 'الإدارة';
+                        const sB = b.source === 'cashier' ? 'الكاشير' : 'الإدارة';
+                        const cmp = sA.localeCompare(sB, 'ar') * dirFactor;
+                        return cmp !== 0 ? cmp : a.date.localeCompare(b.date);
+                    } else {
+                        return String(a.date || '').localeCompare(String(b.date || '')) * dirFactor;
+                    }
                 });
 
                 if (sortedDetailed.length === 0) {
@@ -2024,6 +2088,45 @@
             const tfootSum = document.getElementById('rep_expenses_tfoot_sum');
             if (tfootSum) tfootSum.textContent = formatCurrency(visibleExpSum);
         }
+
+        window.reportSortState = {
+            summary: { key: 'account', dir: 'asc' },
+            detailed: { key: 'date', dir: 'asc' }
+        };
+        window.reportUserSortedManually = false;
+
+        function renderSortableTh(mode, colKey, colType, label, currentSort) {
+            const isActive = currentSort && currentSort.key === colKey;
+            let iconClass = 'fa-sort';
+            let tooltip = colType === 'numeric' ? 'انقر للترتيب حسب الأكبر أو الأصغر' : (colType === 'alpha' ? 'انقر للترتيب حسب الأحرف (أ - ي)' : 'انقر للترتيب حسب التاريخ');
+            if (isActive) {
+                if (colType === 'numeric') {
+                    iconClass = currentSort.dir === 'desc' ? 'fa-sort-amount-down' : 'fa-sort-amount-up';
+                    tooltip = currentSort.dir === 'desc' ? 'مرتب حالياً: من الأكبر إلى الأصغر (انقر للعكس)' : 'مرتب حالياً: من الأصغر إلى الأكبر (انقر للعكس)';
+                } else if (colType === 'alpha') {
+                    iconClass = currentSort.dir === 'asc' ? 'fa-sort-alpha-down' : 'fa-sort-alpha-up';
+                    tooltip = currentSort.dir === 'asc' ? 'مرتب حالياً: حسب الأحرف أ - ي (انقر للعكس)' : 'مرتب حالياً: حسب الأحرف ي - أ (انقر للعكس)';
+                } else {
+                    iconClass = currentSort.dir === 'asc' ? 'fa-sort-numeric-down' : 'fa-sort-numeric-up';
+                    tooltip = currentSort.dir === 'asc' ? 'مرتب حالياً: من الأقدم إلى الأحدث (انقر للعكس)' : 'مرتب حالياً: من الأحدث إلى الأقدم (انقر للعكس)';
+                }
+            }
+            return `<th class="sortable-th ${isActive ? 'active-sort' : ''}" onclick="sortReportByColumn('${mode}', '${colKey}', '${colType}')" title="${tooltip}">${label}<i class="fas ${iconClass} sort-icon no-print"></i></th>`;
+        }
+
+        window.sortReportByColumn = function(mode, colKey, colType) {
+            const stateObj = window.reportSortState[mode];
+            if (!stateObj) return;
+            window.reportUserSortedManually = true;
+            if (stateObj.key === colKey) {
+                stateObj.dir = stateObj.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                stateObj.key = colKey;
+                // إذا كان العمود رقمياً نبدأ بالأكبر أولاً (desc)، وإذا كان نصياً نبدأ بترتيب الأحرف (asc)
+                stateObj.dir = colType === 'numeric' ? 'desc' : 'asc';
+            }
+            generateReports();
+        };
 
         window.setReportViewMode = function(mode) {
             const reportTypeEl = document.getElementById('rep_report_type');
@@ -2084,6 +2187,8 @@
             const currentQuery = searchInput ? searchInput.value.trim() : '';
 
             if (selectedVal === '__TYPING__') {
+                window.reportUserSortedManually = false;
+                window.reportSortState.summary = { key: 'account', dir: 'asc' };
                 updateCategoriesList(currentQuery);
                 if (repSelect) repSelect.value = 'all';
                 generateReports();
